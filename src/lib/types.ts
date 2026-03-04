@@ -1,3 +1,14 @@
+export const CATEGORIES = [
+  'ビーバー',
+  'カブ',
+  'ボーイ',
+  'ベンチャー',
+  '団活動',
+  'お知らせ',
+] as const;
+
+export type Category = typeof CATEGORIES[number];
+
 export interface Article {
   id: number;           // PR番号
   title: string;
@@ -11,6 +22,9 @@ export interface Article {
 export interface CreateArticleInput {
   title: string;
   date: string;
+  categories: string[];
+  outline: string;
+  thumbnailIndex: number;
   body: string;
   images: { filename: string; data: string }[];
 }
@@ -18,6 +32,9 @@ export interface CreateArticleInput {
 export interface UpdateArticleInput {
   title: string;
   date: string;
+  categories: string[];
+  outline: string;
+  thumbnailIndex: number;
   body: string;
   images: { filename: string; data: string; isNew: boolean }[];
 }

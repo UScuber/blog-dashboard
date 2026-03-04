@@ -3,6 +3,14 @@ import { getOctokit, getRepo } from "../lib/github";
 import { verifyAuth } from "../lib/auth";
 import { toJekyllMarkdown } from "../lib/markdown";
 
+/** 画像のインデックスから連番ファイル名を生成 */
+function toSequentialFilename(index: number, originalFilename: string): string {
+  const ext = originalFilename.includes(".")
+    ? originalFilename.substring(originalFilename.lastIndexOf("."))
+    : ".jpg";
+  return `image${String(index + 1).padStart(3, "0")}${ext}`;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "PUT") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -18,11 +26,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: "Invalid pull request number" });
     }
 
-    const { title, date, body, images } = req.body as {
+    const { title, date, body, images, categories, outline, thumbnailIndex } = req.body as {
       title: string;
       date: string;
       body: string;
       images?: { filename: string; data: string; isNew?: boolean }[];
+      categories?: string[];
+      outline?: string;
+      thumbnailIndex?: number;
     };
 
     if (!title || !date || !body) {
@@ -37,13 +48,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
     const branchName = pr.head.ref;
 
-    // 2. 新規画像をコミット
+    // 2. PRの変更ファイル一覧を取得 (pulls.listFiles)
+    const { data: prFiles } = await octokit.pulls.listFiles({
+      owner,
+      repo,
+      pull_number: pullNumber,
+    });
+
+    // 3. 画像ディレクトリ名を決定
+    const postSlug = `${date}-${title}`;
+    const imageDir = `assets/img/blog/${postSlug}`;
+
+    // 4. 新規画像をコミット
     const imagePaths: string[] = [];
     if (images && images.length > 0) {
-      for (const image of images) {
-        const imagePath = `assets/images/${date}/${image.filename}`;
+      for (let i = 0; i < images.length; i++) {
+        const seqFilename = toSequentialFilename(i, images[i].filename);
+        const imagePath = `${imageDir}/${seqFilename}`;
 
-        if (image.isNew) {
+        if (images[i].isNew) {
           // 同名ファイルの SHA を取得（上書き用）
           let existingSha: string | undefined;
           try {
@@ -64,42 +87,63 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             owner,
             repo,
             path: imagePath,
-            message: `Update image: ${image.filename}`,
-            content: image.data,
+            message: `Update image: ${seqFilename}`,
+            content: images[i].data,
             branch: branchName,
             ...(existingSha ? { sha: existingSha } : {}),
           });
         }
-        imagePaths.push(`/assets/images/${date}/${image.filename}`);
+        imagePaths.push(`/${imagePath}`);
       }
     }
 
-    // 3. 既存の _posts ファイルを特定し SHA を取得
-    const { data: files } = await octokit.repos.getContent({
-      owner,
-      repo,
-      path: "_posts",
-      ref: branchName,
-    });
+    // 5. PRの変更ファイルから既存の_postsファイルを特定
+    const postFile = prFiles.find(
+      (f) => f.filename.startsWith("_posts/") && f.filename.endsWith(".md")
+    );
 
     let existingFilePath = "";
     let existingFileSha = "";
-    if (Array.isArray(files)) {
-      const postFile = files.find((f) => f.name.endsWith(".md"));
-      if (postFile && "sha" in postFile) {
-        existingFilePath = postFile.path;
-        existingFileSha = postFile.sha;
+
+    if (postFile) {
+      existingFilePath = postFile.filename;
+      // SHA を取得
+      try {
+        const { data: fileData } = await octokit.repos.getContent({
+          owner,
+          repo,
+          path: existingFilePath,
+          ref: branchName,
+        });
+        if ("sha" in fileData) {
+          existingFileSha = fileData.sha;
+        }
+      } catch {
+        // ファイルが見つからない場合
       }
     }
 
-    if (!existingFilePath) {
-      return res.status(404).json({ error: "Post file not found in branch" });
+    if (!existingFilePath || !existingFileSha) {
+      return res.status(404).json({ error: "Post file not found in PR changes" });
     }
 
-    // 4. Markdown 再生成 & 更新コミット
+    // 6. サムネイル画像名の決定
+    const thumbIdx = typeof thumbnailIndex === "number" && thumbnailIndex >= 0 && images && thumbnailIndex < images.length
+      ? thumbnailIndex
+      : 0;
+    const imgFilename = images && images.length > 0
+      ? toSequentialFilename(thumbIdx, images[thumbIdx].filename)
+      : "";
+    const thumbFilename = imgFilename;
+
+    // 7. Markdown 再生成 & 更新コミット
     const markdown = toJekyllMarkdown({
       title,
       date,
+      categories: categories || [],
+      outline: outline || "",
+      img: imgFilename,
+      thumb: thumbFilename,
       body,
       images: imagePaths,
     });
@@ -114,7 +158,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       branch: branchName,
     });
 
-    // 5. タイトル変更時は PR タイトルも更新
+    // 8. タイトル変更時は PR タイトルも更新
     if (pr.title !== `post: ${title}`) {
       await octokit.pulls.update({
         owner,

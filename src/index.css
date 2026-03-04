@@ -254,6 +254,23 @@ a:hover {
   min-height: calc(100vh - 56px - 48px);
 }
 
+.editor-single {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 24px;
+  flex: 1;
+}
+
+.editor-single h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1a202c;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
 .editor-layout {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -280,6 +297,16 @@ a:hover {
 }
 
 /* Form Elements */
+.form-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 0;
+}
+
+.form-group-flex {
+  flex: 1;
+}
+
 .form-group {
   margin-bottom: 16px;
 }
@@ -398,6 +425,115 @@ a:hover {
 
 .image-remove:hover {
   background: rgba(220, 38, 38, 0.8);
+}
+
+/* Category Checkboxes */
+.category-checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.category-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: #475569;
+  background: #fff;
+  transition: all 0.15s;
+  user-select: none;
+}
+
+.category-checkbox:hover {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.category-checkbox input[type="checkbox"] {
+  accent-color: #2563eb;
+  cursor: pointer;
+}
+
+.category-checkbox input[type="checkbox"]:checked + span {
+  color: #2563eb;
+  font-weight: 600;
+}
+
+/* Thumbnail Selection */
+.image-thumb {
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.image-thumb-selected {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.3);
+}
+
+.thumb-badge {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 0 4px;
+  font-size: 9px;
+  font-weight: 700;
+  color: #fff;
+  background: #2563eb;
+  border-radius: 3px;
+  vertical-align: middle;
+}
+
+/* WYSIWYG Editor */
+.wysiwyg-toolbar {
+  margin-bottom: 4px;
+}
+
+.wysiwyg-editor-wrapper {
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  transition: border-color 0.15s;
+}
+
+.wysiwyg-editor-wrapper:focus-within {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.wysiwyg-editor-content {
+  min-height: 400px;
+  padding: 12px;
+  font-size: 15px;
+  line-height: 1.8;
+  color: #1a202c;
+  outline: none;
+}
+
+.wysiwyg-editor-content p {
+  margin-bottom: 8px;
+}
+
+.wysiwyg-editor-content p:last-child {
+  margin-bottom: 0;
+}
+
+.wysiwyg-editor-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  margin: 8px 0;
+  display: block;
+}
+
+.wysiwyg-editor-content:empty::before {
+  content: '記事の本文を入力...';
+  color: #9ca3af;
+  pointer-events: none;
 }
 
 /* Preview */

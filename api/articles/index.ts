@@ -31,35 +31,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         let markdownContent = "";
 
         try {
-          // PR ブランチの _posts/ ディレクトリ内容を取得
-          const { data: files } = await octokit.repos.getContent({
+          // PRの変更ファイル一覧から _posts/ のMarkdownを特定
+          const { data: prFiles } = await octokit.pulls.listFiles({
             owner,
             repo,
-            path: "_posts",
-            ref: pr.head.ref,
+            pull_number: pr.number,
           });
 
-          if (Array.isArray(files)) {
-            // ブランチ固有のファイルを見つける
-            const postFile = files.find((f) => f.name.endsWith(".md"));
-            if (postFile && postFile.type === "file") {
-              const { data: fileData } = await octokit.repos.getContent({
-                owner,
-                repo,
-                path: postFile.path,
-                ref: pr.head.ref,
-              });
+          const postFile = prFiles.find(
+            (f) => f.filename.startsWith("_posts/") && f.filename.endsWith(".md")
+          );
 
-              if ("content" in fileData && fileData.content) {
-                markdownContent = Buffer.from(
-                  fileData.content,
-                  "base64",
-                ).toString("utf-8");
-              }
+          if (postFile) {
+            const { data: fileData } = await octokit.repos.getContent({
+              owner,
+              repo,
+              path: postFile.filename,
+              ref: pr.head.ref,
+            });
+
+            if ("content" in fileData && fileData.content) {
+              markdownContent = Buffer.from(
+                fileData.content,
+                "base64",
+              ).toString("utf-8");
             }
           }
         } catch {
-          // _posts が無い場合は空のまま
+          // ファイルが見つからない場合は空のまま
         }
 
         return {

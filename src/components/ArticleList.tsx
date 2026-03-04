@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchArticles, publishArticle } from '../lib/api';
+import { fetchArticles, publishArticle, fetchPreviewUrl } from '../lib/api';
 import type { Article } from '../lib/types';
 
 export default function ArticleList() {
@@ -8,6 +8,7 @@ export default function ArticleList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [publishingId, setPublishingId] = useState<number | null>(null);
+  const [previewUrls, setPreviewUrls] = useState<Record<number, string | null>>({});
   const navigate = useNavigate();
 
   const loadArticles = async () => {
@@ -16,6 +17,19 @@ export default function ArticleList() {
     try {
       const data = await fetchArticles();
       setArticles(data);
+
+      // 各記事のプレビューURLを並列で取得
+      const entries = await Promise.all(
+        data.map(async (a) => {
+          try {
+            const { previewUrl } = await fetchPreviewUrl(a.id);
+            return [a.id, previewUrl] as const;
+          } catch {
+            return [a.id, null] as const;
+          }
+        })
+      );
+      setPreviewUrls(Object.fromEntries(entries));
     } catch (err: any) {
       setError(err.message || '記事の取得に失敗しました');
     } finally {
@@ -104,13 +118,20 @@ export default function ArticleList() {
                 >
                   編集
                 </button>
-                <button
-                  className="btn btn-ghost"
-                  disabled
-                  title="Phase 4 で有効化"
-                >
-                  プレビュー
-                </button>
+                {previewUrls[article.id] ? (
+                  <a
+                    className="btn btn-secondary"
+                    href={previewUrls[article.id]!}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    プレビュー
+                  </a>
+                ) : (
+                  <span className="btn btn-ghost" style={{ cursor: 'default' }}>
+                    プレビュー準備中
+                  </span>
+                )}
                 <button
                   className="btn btn-danger"
                   onClick={() => handlePublish(article.id)}

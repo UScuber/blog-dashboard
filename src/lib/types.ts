@@ -36,7 +36,7 @@ export interface UpdateArticleInput {
   outline: string;
   thumbnailIndex: number;
   body: string;
-  images: { filename: string; data: string; isNew: boolean }[];
+  images: { filename: string; data: string; isNew: boolean; originalPath?: string }[];
 }
 
 export interface UploadImageInput {

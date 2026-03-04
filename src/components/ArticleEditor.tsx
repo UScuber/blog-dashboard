@@ -8,10 +8,11 @@ import { parseMarkdown, htmlToBody, toProxyUrl } from '../lib/parser';
 import { CATEGORIES } from '../lib/types';
 
 interface ImageItem {
-  src: string;        // DataURL (新規) or GitHub path (既存)
+  src: string;           // DataURL (新規) or ProxyURL (既存)
   filename: string;
-  data: string;       // Base64 (新規のみ)
+  data: string;          // Base64 (新規のみ)
   isNew: boolean;
+  originalPath?: string; // 既存画像のGitHub上パス (例: "/assets/img/blog/.../image001.jpg")
 }
 
 export default function ArticleEditor() {
@@ -28,10 +29,13 @@ export default function ArticleEditor() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  // 画像リスト: エディタ内に挿入された画像を順番に管理
   const [imageList, setImageList] = useState<ImageItem[]>([]);
+  const [showImagePool, setShowImagePool] = useState(false);
+  const [unusedImages, setUnusedImages] = useState<ImageItem[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const imagePoolRef = useRef<HTMLDivElement>(null);
+  const addImageRef = useRef<(file: File) => void>(undefined);
 
   const editor = useEditor({
     extensions: [
@@ -47,7 +51,7 @@ export default function ArticleEditor() {
       Image.configure({
         inline: false,
         HTMLAttributes: {
-          style: 'max-width: 100%; height: auto; border-radius: 4px; margin: 8px 0;',
+          style: 'max-width: 450px; height: auto; border-radius: 4px; margin: 8px 0;',
         },
       }),
     ],
@@ -55,8 +59,41 @@ export default function ArticleEditor() {
       attributes: {
         class: 'wysiwyg-editor-content',
       },
+      handlePaste: (_view, event) => {
+        const items = event.clipboardData?.items;
+        if (!items) return false;
+        for (const item of Array.from(items)) {
+          if (item.type.startsWith('image/')) {
+            const file = item.getAsFile();
+            if (file) addImageRef.current?.(file);
+            return true;
+          }
+        }
+        return false;
+      },
     },
   });
+
+  /** 画像ファイルをエディタに追加する共通ヘルパー */
+  const addImageToEditor = useCallback((file: File) => {
+    if (!editor) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      const base64 = dataUrl.split(',')[1];
+      const newItem: ImageItem = {
+        src: dataUrl,
+        filename: file.name,
+        data: base64,
+        isNew: true,
+      };
+      setImageList((prev) => [...prev, newItem]);
+      editor.chain().focus().setImage({ src: dataUrl }).run();
+    };
+    reader.readAsDataURL(file);
+  }, [editor]);
+
+  addImageRef.current = addImageToEditor;
 
   // 編集時: 既存記事を読み込む
   useEffect(() => {
@@ -79,22 +116,20 @@ export default function ArticleEditor() {
         setCategories(parsed.categories);
         setOutline(parsed.outline);
 
-        // 既存画像リストを構築（プロキシURL経由で表示、PRブランチを指定）
         const existingImages: ImageItem[] = parsed.existingImages.map((src) => ({
           src: toProxyUrl(src, branch),
           filename: src.split('/').pop() || 'image.jpg',
           data: '',
           isNew: false,
+          originalPath: src,
         }));
         setImageList(existingImages);
 
-        // サムネイル復元
         if (parsed.thumb && existingImages.length > 0) {
           const thumbIdx = existingImages.findIndex((img) => img.filename === parsed.thumb);
           if (thumbIdx >= 0) setThumbnailIndex(thumbIdx);
         }
 
-        // WYSIWYG エディタに HTML を設定
         editor.commands.setContent(parsed.bodyHtml);
       } catch (err: any) {
         setError(err.message || '記事の読み込みに失敗しました');
@@ -103,6 +138,17 @@ export default function ArticleEditor() {
       }
     })();
   }, [id, isEdit, editor]);
+
+  // ドロップダウン外クリックで閉じる
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (imagePoolRef.current && !imagePoolRef.current.contains(e.target as Node)) {
+        setShowImagePool(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleCategoryToggle = (cat: string) => {
     setCategories((prev) =>
@@ -116,31 +162,43 @@ export default function ArticleEditor() {
 
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (!files || files.length === 0 || !editor) return;
-
-    Array.from(files).forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const dataUrl = reader.result as string;
-        const base64 = dataUrl.split(',')[1];
-
-        const newItem: ImageItem = {
-          src: dataUrl,
-          filename: file.name,
-          data: base64,
-          isNew: true,
-        };
-
-        setImageList((prev) => [...prev, newItem]);
-
-        // エディタにIMG挿入
-        editor.chain().focus().setImage({ src: dataUrl }).run();
-      };
-      reader.readAsDataURL(file);
-    });
-
+    if (!files || files.length === 0) return;
+    Array.from(files).forEach((file) => addImageToEditor(file));
     e.target.value = '';
+  }, [addImageToEditor]);
+
+  /** エディタ内で使用中の画像srcを収集 */
+  const getUsedSrcs = useCallback((): Set<string> => {
+    if (!editor) return new Set();
+    const json = editor.getJSON();
+    const srcs = new Set<string>();
+    const walk = (node: any) => {
+      if (node.type === 'image' && node.attrs?.src) {
+        srcs.add(node.attrs.src);
+      }
+      if (node.content) {
+        for (const child of node.content) walk(child);
+      }
+    };
+    walk(json);
+    return srcs;
   }, [editor]);
+
+  /** 追加済み画像プールの表示切替 */
+  const toggleImagePool = () => {
+    if (!showImagePool) {
+      const usedSrcs = getUsedSrcs();
+      setUnusedImages(imageList.filter((img) => !usedSrcs.has(img.src)));
+    }
+    setShowImagePool((prev) => !prev);
+  };
+
+  /** 未使用画像をエディタに再挿入 */
+  const handleReinsertImage = (img: ImageItem) => {
+    if (!editor) return;
+    editor.chain().focus().setImage({ src: img.src }).run();
+    setShowImagePool(false);
+  };
 
   /** エディタ内の画像を収集し、body テキスト + 画像リストを返す */
   const extractContent = useCallback((): { body: string; images: ImageItem[] } => {
@@ -149,11 +207,9 @@ export default function ArticleEditor() {
     const html = editor.getHTML();
     const { body, imageSrcs } = htmlToBody(html);
 
-    // imageSrcs の順序で画像リストを構築
     const orderedImages: ImageItem[] = imageSrcs.map((src) => {
       const existing = imageList.find((img) => img.src === src);
       if (existing) return existing;
-      // 見つからない場合（通常起こらない）
       return { src, filename: src.split('/').pop() || 'image.jpg', data: '', isNew: false };
     });
 
@@ -176,7 +232,6 @@ export default function ArticleEditor() {
     setError('');
 
     try {
-      // サムネイルインデックスを調整（画像順序が変わっている可能性がある）
       const thumbIdx = thumbnailIndex < images.length ? thumbnailIndex : 0;
 
       if (isEdit) {
@@ -191,6 +246,7 @@ export default function ArticleEditor() {
             filename: img.filename,
             data: img.data,
             isNew: img.isNew,
+            originalPath: img.originalPath,
           })),
         });
       } else {
@@ -218,7 +274,12 @@ export default function ArticleEditor() {
   };
 
   if (loading) {
-    return <div className="loading">読み込み中...</div>;
+    return (
+      <div className="loading-overlay">
+        <div className="loading-spinner" />
+        <p className="loading-text">記事の内容を読み込み中...</p>
+      </div>
+    );
   }
 
   return (
@@ -292,6 +353,37 @@ export default function ArticleEditor() {
             >
               画像を挿入
             </button>
+            {imageList.length > 0 && (
+              <div className="image-pool-wrapper" ref={imagePoolRef}>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={toggleImagePool}
+                >
+                  追加済み画像から選択
+                </button>
+                {showImagePool && (
+                  <div className="image-pool-dropdown">
+                    {unusedImages.length === 0 ? (
+                      <p className="image-pool-empty">再挿入可能な画像はありません</p>
+                    ) : (
+                      <div className="image-pool-grid">
+                        {unusedImages.map((img, idx) => (
+                          <div
+                            key={idx}
+                            className="image-pool-item"
+                            onClick={() => handleReinsertImage(img)}
+                          >
+                            <img src={img.src} alt={img.filename} />
+                            <span>{img.filename}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <div className="wysiwyg-editor-wrapper">
             <EditorContent editor={editor} />

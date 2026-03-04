@@ -1,9 +1,11 @@
 import type { Article, CreateArticleInput, UpdateArticleInput, UploadImageInput } from './types';
+import { getIdToken } from './firebase';
 
-// TODO: Phase 3 で Authorization ヘッダーを追加
 async function authHeaders(): Promise<Record<string, string>> {
+  const token = await getIdToken();
   return {
     'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`,
   };
 }
 

@@ -17,6 +17,8 @@ export interface Article {
   createdAt: string;
   updatedAt: string;
   markdownContent: string;  // Markdown本文
+  previewStatus: string;          // "ready" | "building" | "pending"
+  previewUrl: string | null;
 }
 
 export interface CreateArticleInput {

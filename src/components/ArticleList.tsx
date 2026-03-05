@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchArticles, publishArticle, fetchPreviewUrl } from '../lib/api';
+import { fetchArticles, publishArticle } from '../lib/api';
 import type { Article } from '../lib/types';
 
 export default function ArticleList() {
@@ -8,9 +8,6 @@ export default function ArticleList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [publishingId, setPublishingId] = useState<number | null>(null);
-  const [previewUrls, setPreviewUrls] = useState<Record<number, string | null>>({});
-  const [previewStatuses, setPreviewStatuses] = useState<Record<number, string>>({});
-  const [previewLoading, setPreviewLoading] = useState<Record<number, boolean>>({});
   const navigate = useNavigate();
 
   const loadArticles = async () => {
@@ -19,28 +16,9 @@ export default function ArticleList() {
     try {
       const data = await fetchArticles();
       setArticles(data);
-      setLoading(false); // 記事一覧が取れた時点で即表示
-
-      // プレビューURLは個別に非同期取得
-      const loadingState: Record<number, boolean> = {};
-      data.forEach(a => { loadingState[a.id] = true; });
-      setPreviewLoading(loadingState);
-
-      // 各記事のプレビューURLを並列取得（個別に完了次第反映）
-      data.forEach(async (a) => {
-        try {
-          const { status, previewUrl } = await fetchPreviewUrl(a.id);
-          setPreviewUrls(prev => ({ ...prev, [a.id]: previewUrl }));
-          setPreviewStatuses(prev => ({ ...prev, [a.id]: status }));
-        } catch {
-          setPreviewUrls(prev => ({ ...prev, [a.id]: null }));
-          setPreviewStatuses(prev => ({ ...prev, [a.id]: 'error' }));
-        } finally {
-          setPreviewLoading(prev => ({ ...prev, [a.id]: false }));
-        }
-      });
     } catch (err: any) {
       setError(err.message || '記事の取得に失敗しました');
+    } finally {
       setLoading(false);
     }
   };
@@ -131,22 +109,18 @@ export default function ArticleList() {
                 >
                   編集
                 </button>
-                {previewLoading[article.id] ? (
-                  <button className="btn btn-secondary" disabled>
-                    <span className="btn-spinner" /> 読み込み中
-                  </button>
-                ) : previewStatuses[article.id] === 'building' ? (
+                {article.previewStatus === 'building' ? (
                   <button className="btn btn-secondary" disabled>
                     <span className="btn-spinner" /> デプロイ中...
                   </button>
-                ) : previewStatuses[article.id] === 'pending' ? (
+                ) : article.previewStatus === 'pending' ? (
                   <button className="btn btn-secondary" disabled>
                     デプロイ準備中
                   </button>
-                ) : previewUrls[article.id] ? (
+                ) : article.previewUrl ? (
                   <a
                     className="btn btn-secondary"
-                    href={previewUrls[article.id]!}
+                    href={article.previewUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                   >

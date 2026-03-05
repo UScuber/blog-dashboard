@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
-import { fetchArticles, createArticle, updateArticle } from "../lib/api";
+import { fetchArticle, createArticle, updateArticle } from "../lib/api";
 import { parseMarkdown, htmlToBody, toProxyUrl, resetCacheBuster } from "../lib/parser";
 import { CATEGORIES } from "../lib/types";
 
@@ -204,13 +204,7 @@ export default function ArticleEditor() {
     (async () => {
       resetCacheBuster(); // キャッシュバスティング用タイムスタンプをリセット
       try {
-        const articles = await fetchArticles();
-        const article = articles.find((a) => a.id === Number(id));
-        if (!article) {
-          setError("記事が見つかりません");
-          setLoading(false);
-          return;
-        }
+        const article = await fetchArticle(Number(id));
 
         const branch = article.branch;
         const parsed = parseMarkdown(article.markdownContent, branch);

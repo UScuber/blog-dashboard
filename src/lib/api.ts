@@ -62,8 +62,8 @@ export async function publishArticle(pullNumber: number): Promise<void> {
   });
 }
 
-export async function fetchPreviewUrl(pullNumber: number): Promise<{ status: string; previewUrl: string | null }> {
+export async function fetchArticle(id: number): Promise<Article> {
   const headers = await authHeaders();
-  const result = await request<{ success: boolean; data: { status: string; previewUrl: string | null } }>(`/api/preview/${pullNumber}`, { headers });
+  const result = await request<{ success: boolean; data: Article }>(`/api/articles/${id}`, { headers });
   return result.data;
 }

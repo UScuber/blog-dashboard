@@ -22,7 +22,59 @@ interface ImageInput {
   originalPath?: string;
 }
 
+async function handleGet(req: VercelRequest, res: VercelResponse) {
+  await verifyAuth(req);
+  const octokit = getOctokit();
+  const { owner, repo } = getRepo();
+
+  const pullNumber = Number(req.query.id);
+  if (isNaN(pullNumber)) {
+    return res.status(400).json({ error: "Invalid pull request number" });
+  }
+
+  // PR情報とファイル一覧を並列取得
+  const [{ data: pr }, { data: prFiles }] = await Promise.all([
+    octokit.pulls.get({ owner, repo, pull_number: pullNumber }),
+    octokit.pulls.listFiles({ owner, repo, pull_number: pullNumber }),
+  ]);
+
+  let markdownContent = "";
+  const postFile = prFiles.find(
+    (f) => f.filename.startsWith("_posts/") && f.filename.endsWith(".md"),
+  );
+  if (postFile) {
+    const { data: fileData } = await octokit.repos.getContent({
+      owner, repo, path: postFile.filename, ref: pr.head.ref,
+    });
+    if ("content" in fileData && fileData.content) {
+      markdownContent = Buffer.from(fileData.content, "base64").toString("utf-8");
+    }
+  }
+
+  return res.status(200).json({
+    success: true,
+    data: {
+      id: pr.number,
+      title: pr.title,
+      branch: pr.head.ref,
+      status: pr.state,
+      createdAt: pr.created_at,
+      updatedAt: pr.updated_at,
+      markdownContent,
+    },
+  });
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.method === "GET") {
+    try {
+      return await handleGet(req, res);
+    } catch (err: any) {
+      if (err.status === 404) return res.status(404).json({ error: "Pull request not found" });
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
   if (req.method !== "PUT") {
     return res.status(405).json({ error: "Method not allowed" });
   }

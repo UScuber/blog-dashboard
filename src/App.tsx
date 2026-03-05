@@ -19,7 +19,12 @@ export default function App() {
   }, []);
 
   if (authLoading) {
-    return <div className="loading">読み込み中...</div>;
+    return (
+      <div className="loading-overlay">
+        <div className="loading-spinner" />
+        <p className="loading-text">読み込み中...</p>
+      </div>
+    );
   }
 
   if (!user) {

@@ -9,6 +9,8 @@ export default function ArticleList() {
   const [error, setError] = useState('');
   const [publishingId, setPublishingId] = useState<number | null>(null);
   const [previewUrls, setPreviewUrls] = useState<Record<number, string | null>>({});
+  const [previewStatuses, setPreviewStatuses] = useState<Record<number, string>>({});
+  const [previewLoading, setPreviewLoading] = useState<Record<number, boolean>>({});
   const navigate = useNavigate();
 
   const loadArticles = async () => {
@@ -17,22 +19,28 @@ export default function ArticleList() {
     try {
       const data = await fetchArticles();
       setArticles(data);
+      setLoading(false); // 記事一覧が取れた時点で即表示
 
-      // 各記事のプレビューURLを並列で取得
-      const entries = await Promise.all(
-        data.map(async (a) => {
-          try {
-            const { previewUrl } = await fetchPreviewUrl(a.id);
-            return [a.id, previewUrl] as const;
-          } catch {
-            return [a.id, null] as const;
-          }
-        })
-      );
-      setPreviewUrls(Object.fromEntries(entries));
+      // プレビューURLは個別に非同期取得
+      const loadingState: Record<number, boolean> = {};
+      data.forEach(a => { loadingState[a.id] = true; });
+      setPreviewLoading(loadingState);
+
+      // 各記事のプレビューURLを並列取得（個別に完了次第反映）
+      data.forEach(async (a) => {
+        try {
+          const { status, previewUrl } = await fetchPreviewUrl(a.id);
+          setPreviewUrls(prev => ({ ...prev, [a.id]: previewUrl }));
+          setPreviewStatuses(prev => ({ ...prev, [a.id]: status }));
+        } catch {
+          setPreviewUrls(prev => ({ ...prev, [a.id]: null }));
+          setPreviewStatuses(prev => ({ ...prev, [a.id]: 'error' }));
+        } finally {
+          setPreviewLoading(prev => ({ ...prev, [a.id]: false }));
+        }
+      });
     } catch (err: any) {
       setError(err.message || '記事の取得に失敗しました');
-    } finally {
       setLoading(false);
     }
   };
@@ -71,7 +79,12 @@ export default function ArticleList() {
   };
 
   if (loading) {
-    return <div className="loading">読み込み中...</div>;
+    return (
+      <div className="loading-overlay">
+        <div className="loading-spinner" />
+        <p className="loading-text">記事一覧を読み込み中...</p>
+      </div>
+    );
   }
 
   if (error) {
@@ -118,7 +131,19 @@ export default function ArticleList() {
                 >
                   編集
                 </button>
-                {previewUrls[article.id] ? (
+                {previewLoading[article.id] ? (
+                  <button className="btn btn-secondary" disabled>
+                    <span className="btn-spinner" /> 読み込み中
+                  </button>
+                ) : previewStatuses[article.id] === 'building' ? (
+                  <button className="btn btn-secondary" disabled>
+                    <span className="btn-spinner" /> デプロイ中...
+                  </button>
+                ) : previewStatuses[article.id] === 'pending' ? (
+                  <button className="btn btn-secondary" disabled>
+                    デプロイ準備中
+                  </button>
+                ) : previewUrls[article.id] ? (
                   <a
                     className="btn btn-secondary"
                     href={previewUrls[article.id]!}
@@ -129,7 +154,7 @@ export default function ArticleList() {
                   </a>
                 ) : (
                   <span className="btn btn-ghost" style={{ cursor: 'default' }}>
-                    プレビュー準備中
+                    プレビューなし
                   </span>
                 )}
                 <button

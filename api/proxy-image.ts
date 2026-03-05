@@ -49,7 +49,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     };
     const contentType = mimeMap[ext] || "application/octet-stream";
 
-    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
     res.setHeader("Content-Type", contentType);
     res.setHeader("Content-Length", buffer.length.toString());
 

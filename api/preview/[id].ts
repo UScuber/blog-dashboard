@@ -52,17 +52,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const { deployments } = (await vercelRes.json()) as { deployments: VercelDeployment[] };
 
-    // ブランチが一致する最新のデプロイを探す
-    const ready = deployments.find(
-      (d) => d.meta?.githubCommitRef === branch && d.state === "READY",
-    );
-    if (ready) {
-      return res.status(200).json({
-        success: true,
-        data: { status: "ready", previewUrl: `https://${ready.url}` },
-      });
-    }
-
+    // building があれば ready より優先
     const building = deployments.find(
       (d) => d.meta?.githubCommitRef === branch && (d.state === "BUILDING" || d.state === "QUEUED" || d.state === "INITIALIZING"),
     );
@@ -70,6 +60,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({
         success: true,
         data: { status: "building", previewUrl: null },
+      });
+    }
+
+    // building がなければ ready を返す
+    const ready = deployments.find(
+      (d) => d.meta?.githubCommitRef === branch && d.state === "READY",
+    );
+    if (ready) {
+      return res.status(200).json({
+        success: true,
+        data: { status: "ready", previewUrl: `https://${ready.url}` },
       });
     }
 

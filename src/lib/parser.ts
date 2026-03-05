@@ -107,14 +107,22 @@ export function parseMarkdown(content: string, branch?: string): ParsedArticle {
   };
 }
 
-/** /assets/... パスをプロキシ API 経由の URL に変換 */
+// セッション単位のキャッシュバスティング用タイムスタンプ
+let sessionTimestamp = Date.now();
+
+/** セッションタイムスタンプをリセット（編集画面オープン時に呼ぶ） */
+export function resetCacheBuster(): void {
+  sessionTimestamp = Date.now();
+}
+
+/** /assets/... パスをプロキシ API 経由の URL に変換（キャッシュバスティング付き） */
 export function toProxyUrl(assetPath: string, branch?: string): string {
-  // 先頭の / を除去して API パスに変換
   const cleanPath = assetPath.startsWith("/") ? assetPath.slice(1) : assetPath;
   let url = `/api/proxy-image?path=${encodeURIComponent(cleanPath)}`;
   if (branch) {
     url += `&ref=${encodeURIComponent(branch)}`;
   }
+  url += `&t=${sessionTimestamp}`;
   return url;
 }
 
@@ -179,7 +187,7 @@ export function htmlToBody(html: string): {
   text = text.replace(/<\/p>\s*<p>/g, "\n\n"); // 段落区切り → 改行
   text = text.replace(/<p>/g, "");
   text = text.replace(/<\/p>/g, "");
-  text = text.replace(/<br\s*\/?>/g, "\n");
+  text = text.replace(/<br\s*\/?>/g, "\n\n");
 
   // 連続改行を正規化
   text = text.replace(/\n{3,}/g, "\n\n");

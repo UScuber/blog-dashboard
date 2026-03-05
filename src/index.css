@@ -139,6 +139,18 @@ a:hover {
   border-color: #e5e7eb;
 }
 
+.btn-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid #d1d5db;
+  border-top-color: #6b7280;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
 /* Loading & Error */
 .loading {
   text-align: center;
@@ -417,11 +429,33 @@ a:hover {
   background: #f8fafc;
 }
 
+.image-thumb-img-wrapper {
+  position: relative;
+  width: 100%;
+  height: 80px;
+  background: #f1f5f9;
+}
+
+.image-thumb-img-wrapper .img-spinner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 20px;
+  height: 20px;
+  border: 2px solid #e2e8f0;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
 .image-thumb img {
   width: 100%;
   height: 80px;
   object-fit: cover;
   display: block;
+  position: relative;
+  z-index: 1;
 }
 
 .image-label {
@@ -565,11 +599,33 @@ a:hover {
   box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
 }
 
+.image-pool-item-img-wrapper {
+  position: relative;
+  width: 100%;
+  height: 60px;
+  background: #f1f5f9;
+}
+
+.image-pool-item-img-wrapper .img-spinner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 16px;
+  height: 16px;
+  border: 2px solid #e2e8f0;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
 .image-pool-item img {
   width: 100%;
   height: 60px;
   object-fit: cover;
   display: block;
+  position: relative;
+  z-index: 1;
 }
 
 .image-pool-item span {
@@ -626,6 +682,9 @@ a:hover {
   border-radius: 4px;
   margin: 8px 0;
   display: block;
+  background: #f1f5f9 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='10' fill='none' stroke='%23cbd5e1' stroke-width='3'/%3E%3Ccircle cx='12' cy='12' r='10' fill='none' stroke='%232563eb' stroke-width='3' stroke-dasharray='31.4 31.4' stroke-linecap='round'%3E%3CanimateTransform attributeName='transform' type='rotate' from='0 12 12' to='360 12 12' dur='0.8s' repeatCount='indefinite'/%3E%3C/circle%3E%3C/svg%3E") center center no-repeat;
+  min-height: 60px;
+  min-width: 60px;
 }
 
 .wysiwyg-editor-content:empty::before {
@@ -713,6 +772,26 @@ a:hover {
   width: 100%;
   padding: 12px 16px;
   font-size: 15px;
+}
+
+/* Editor Inline Loading */
+.editor-loading-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  color: #94a3b8;
+}
+
+.editor-loading-placeholder .loading-spinner {
+  width: 32px;
+  height: 32px;
+}
+
+.editor-loading-placeholder .loading-text {
+  margin-top: 12px;
+  font-size: 13px;
 }
 
 /* User Email in Header */

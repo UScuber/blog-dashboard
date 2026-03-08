@@ -2,17 +2,11 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getOctokit, getRepo } from "../lib/github";
 import { verifyAuth } from "../lib/auth";
 import { toJekyllMarkdown } from "../lib/markdown";
+import { compressImage } from "../lib/image";
 
-/** 画像のインデックスから連番ファイル名を生成 */
-function toSequentialFilename(index: number, ext: string): string {
-  return `image${String(index + 1).padStart(3, "0")}${ext}`;
-}
-
-/** ファイル名から拡張子を取得 */
-function getExt(filename: string): string {
-  return filename.includes(".")
-    ? filename.substring(filename.lastIndexOf("."))
-    : ".jpg";
+/** 画像のインデックスから連番ファイル名を生成 (常に .jpg) */
+function toSequentialFilename(index: number): string {
+  return `image${String(index + 1).padStart(3, "0")}.jpg`;
 }
 
 interface ImageInput {
@@ -190,18 +184,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const finalFilenames = new Set<string>();
 
     if (images && images.length > 0) {
-      // 新規画像のBlob作成を並列実行
+      // 新規画像の圧縮 & Blob作成を並列実行
       const blobPromises: Promise<{ index: number; sha: string }>[] = [];
       for (let i = 0; i < images.length; i++) {
         if (images[i].isNew) {
           blobPromises.push(
-            octokit.git
-              .createBlob({
-                owner,
-                repo,
-                content: images[i].data,
-                encoding: "base64",
-              })
+            compressImage(images[i].data)
+              .then((compressed) =>
+                octokit.git.createBlob({
+                  owner,
+                  repo,
+                  content: compressed,
+                  encoding: "base64",
+                }),
+              )
               .then(({ data }) => ({ index: i, sha: data.sha })),
           );
         }
@@ -211,8 +207,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       // 画像ツリーエントリを構築
       for (let i = 0; i < images.length; i++) {
-        const ext = getExt(images[i].filename);
-        const newFilename = toSequentialFilename(i, ext);
+        const newFilename = toSequentialFilename(i);
         const newPath = `${imageDir}/${newFilename}`;
         finalFilenames.add(newFilename);
         imagePaths.push(`/${newPath}`);
@@ -316,7 +311,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         : 0;
     const imgFilename =
       images && images.length > 0
-        ? toSequentialFilename(thumbIdx, getExt(images[thumbIdx].filename))
+        ? toSequentialFilename(thumbIdx)
         : "";
 
     // 9. Markdown 再生成 → Blob作成 → ツリーエントリ追加

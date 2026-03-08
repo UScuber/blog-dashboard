@@ -6,6 +6,7 @@ import Image from "@tiptap/extension-image";
 import { fetchArticle, createArticle, updateArticle } from "../lib/api";
 import { parseMarkdown, htmlToBody, toProxyUrl, resetCacheBuster } from "../lib/parser";
 import { CATEGORIES } from "../lib/types";
+import { compressImage } from "../lib/imageCompressor";
 
 /** 画像読み込み中にスピナーを表示するラッパー */
 function ImageWithLoader({
@@ -163,34 +164,32 @@ export default function ArticleEditor() {
     },
   });
 
-  /** 画像ファイルをエディタに追加する共通ヘルパー（重複防止対応） */
+  /** 画像ファイルをエディタに追加する共通ヘルパー（重複防止・事前圧縮対応） */
   const addImageToEditor = useCallback(
-    (file: File) => {
+    async (file: File) => {
       if (!editor) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        const dataUrl = reader.result as string;
-        const base64 = dataUrl.split(",")[1];
 
-        // 重複チェック: 同じbase64データの画像が既にあれば再利用
-        const existing = imageListRef.current.find(
-          (img) => img.isNew && img.data === base64,
-        );
-        if (existing) {
-          editor.chain().focus().setImage({ src: existing.src }).run();
-          return;
-        }
+      // Canvas API で事前圧縮（最大 1200x800, JPEG q0.8）
+      const dataUrl = await compressImage(file);
+      const base64 = dataUrl.split(",")[1];
 
-        const newItem: ImageItem = {
-          src: dataUrl,
-          filename: file.name,
-          data: base64,
-          isNew: true,
-        };
-        setImageList((prev) => [...prev, newItem]);
-        editor.chain().focus().setImage({ src: dataUrl }).run();
+      // 重複チェック: 同じbase64データの画像が既にあれば再利用
+      const existing = imageListRef.current.find(
+        (img) => img.isNew && img.data === base64,
+      );
+      if (existing) {
+        editor.chain().focus().setImage({ src: existing.src }).run();
+        return;
+      }
+
+      const newItem: ImageItem = {
+        src: dataUrl,
+        filename: file.name,
+        data: base64,
+        isNew: true,
       };
-      reader.readAsDataURL(file);
+      setImageList((prev) => [...prev, newItem]);
+      editor.chain().focus().setImage({ src: dataUrl }).run();
     },
     [editor],
   );

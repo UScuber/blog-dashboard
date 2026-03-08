@@ -2,13 +2,11 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getOctokit, getRepo } from "./lib/github";
 import { verifyAuth } from "./lib/auth";
 import { toJekyllMarkdown } from "./lib/markdown";
+import { compressImage } from "./lib/image";
 
-/** 画像のインデックスから連番ファイル名を生成 (image001.jpg, image002.jpg, ...) */
-function toSequentialFilename(index: number, originalFilename: string): string {
-  const ext = originalFilename.includes(".")
-    ? originalFilename.substring(originalFilename.lastIndexOf("."))
-    : ".jpg";
-  return `image${String(index + 1).padStart(3, "0")}${ext}`;
+/** 画像のインデックスから連番ファイル名を生成 (常に .jpg) */
+function toSequentialFilename(index: number): string {
+  return `image${String(index + 1).padStart(3, "0")}.jpg`;
 }
 
 /** ランダムな英数字8桁のIDを生成 */
@@ -72,14 +70,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (images && images.length > 0) {
       for (let i = 0; i < images.length; i++) {
-        const seqFilename = toSequentialFilename(i, images[i].filename);
+        const seqFilename = toSequentialFilename(i);
         const imagePath = `${imageDir}/${seqFilename}`;
+        const compressed = await compressImage(images[i].data);
         await octokit.repos.createOrUpdateFileContents({
           owner,
           repo,
           path: imagePath,
           message: `Add image: ${seqFilename}`,
-          content: images[i].data,
+          content: compressed,
           branch: branchName,
         });
         imagePaths.push(`/${imagePath}`);
@@ -91,7 +90,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ? thumbnailIndex
       : 0;
     const imgFilename = images && images.length > 0
-      ? toSequentialFilename(thumbIdx, images[thumbIdx].filename)
+      ? toSequentialFilename(thumbIdx)
       : "";
     const thumbFilename = imgFilename;
 

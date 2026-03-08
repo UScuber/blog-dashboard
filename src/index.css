@@ -440,7 +440,7 @@ a:hover {
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%);
+  translate: -50% -50%;
   width: 20px;
   height: 20px;
   border: 2px solid #e2e8f0;
@@ -610,7 +610,7 @@ a:hover {
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%);
+  translate: -50% -50%;
   width: 16px;
   height: 16px;
   border: 2px solid #e2e8f0;
@@ -648,10 +648,35 @@ a:hover {
 }
 
 .wysiwyg-editor-wrapper {
+  position: relative;
   border: 1px solid #d1d5db;
   border-radius: 6px;
   background: #fff;
   transition: border-color 0.15s;
+}
+
+.editor-content-loading-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.85);
+  z-index: 10;
+  border-radius: 6px;
+  gap: 12px;
+}
+
+.editor-content-loading-overlay .loading-spinner {
+  width: 32px;
+  height: 32px;
+}
+
+.editor-content-loading-overlay .loading-text {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0;
 }
 
 .wysiwyg-editor-wrapper:focus-within {

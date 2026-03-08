@@ -5,6 +5,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import { fetchArticle, createArticle, updateArticle } from "../lib/api";
 import { parseMarkdown, htmlToBody, toProxyUrl, resetCacheBuster } from "../lib/parser";
+import type { ParsedArticle } from "../lib/parser";
 import { CATEGORIES } from "../lib/types";
 import { compressImage } from "../lib/imageCompressor";
 
@@ -63,9 +64,10 @@ export default function ArticleEditor() {
   const [categories, setCategories] = useState<string[]>([]);
   const [outline, setOutline] = useState("");
   const [thumbnailIndex, setThumbnailIndex] = useState(0);
-  const [loading, setLoading] = useState(isEdit);
+  const [contentLoading, setContentLoading] = useState(isEdit);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const fetchedDataRef = useRef<{ parsed: ParsedArticle; branch?: string } | null>(null);
 
   const [imageList, setImageList] = useState<ImageItem[]>([]);
   const [editorImages, setEditorImages] = useState<ImageItem[]>([]);
@@ -142,6 +144,7 @@ export default function ArticleEditor() {
         },
       }),
     ],
+    editable: !isEdit,
     editorProps: {
       attributes: {
         class: "wysiwyg-editor-content",
@@ -196,70 +199,92 @@ export default function ArticleEditor() {
 
   addImageRef.current = addImageToEditor;
 
-  // 編集時: 既存記事を読み込む
-  useEffect(() => {
-    if (!isEdit || !editor) return;
+  // フェッチ済みデータをエディタに適用する共通関数
+  const applyFetchedData = useCallback(() => {
+    if (!editor || !fetchedDataRef.current) return;
 
+    const { parsed, branch } = fetchedDataRef.current;
+    fetchedDataRef.current = null; // 二重適用を防止
+
+    const existingImages: ImageItem[] = parsed.existingImages.map(
+      (src) => ({
+        src: toProxyUrl(src, branch),
+        filename: src.split("/").pop() || "image.jpg",
+        data: "",
+        isNew: false,
+        originalPath: src,
+      }),
+    );
+    setImageList(existingImages);
+    imageListRef.current = existingImages;
+
+    if (parsed.thumb && existingImages.length > 0) {
+      const thumbIdx = existingImages.findIndex(
+        (img) => img.filename === parsed.thumb,
+      );
+      if (thumbIdx >= 0) setThumbnailIndex(thumbIdx);
+    }
+
+    editor.commands.setContent(parsed.bodyHtml);
+
+    // エディタ内の画像を走査して editorImages を初期設定
+    const json = editor.getJSON();
+    const seenSrcs = new Set<string>();
+    const orderedSrcs: string[] = [];
+    const walk = (node: any) => {
+      if (node.type === "image" && node.attrs?.src) {
+        if (!seenSrcs.has(node.attrs.src)) {
+          seenSrcs.add(node.attrs.src);
+          orderedSrcs.push(node.attrs.src);
+        }
+      }
+      if (node.content) {
+        for (const child of node.content) walk(child);
+      }
+    };
+    walk(json);
+    const initialEditorImages = orderedSrcs
+      .map((src) => existingImages.find((img) => img.src === src))
+      .filter((img): img is ImageItem => !!img);
+    setEditorImages(initialEditorImages);
+
+    editor.setEditable(true);
+    setContentLoading(false);
+  }, [editor]);
+
+  // 編集時: エディタ初期化と並行してデータを取得する
+  useEffect(() => {
+    if (!isEdit) return;
+
+    resetCacheBuster();
     (async () => {
-      resetCacheBuster(); // キャッシュバスティング用タイムスタンプをリセット
       try {
         const article = await fetchArticle(Number(id));
-
         const branch = article.branch;
         const parsed = parseMarkdown(article.markdownContent, branch);
+
+        // メタ情報を即座に反映
         setTitle(parsed.title);
         setDate(parsed.date);
         setCategories(parsed.categories);
         setOutline(parsed.outline);
 
-        const existingImages: ImageItem[] = parsed.existingImages.map(
-          (src) => ({
-            src: toProxyUrl(src, branch),
-            filename: src.split("/").pop() || "image.jpg",
-            data: "",
-            isNew: false,
-            originalPath: src,
-          }),
-        );
-        setImageList(existingImages);
-        imageListRef.current = existingImages;
+        // フェッチ済みデータを保持
+        fetchedDataRef.current = { parsed, branch };
 
-        if (parsed.thumb && existingImages.length > 0) {
-          const thumbIdx = existingImages.findIndex(
-            (img) => img.filename === parsed.thumb,
-          );
-          if (thumbIdx >= 0) setThumbnailIndex(thumbIdx);
-        }
-
-        editor.commands.setContent(parsed.bodyHtml);
-
-        // エディタ内の画像を走査して editorImages を初期設定
-        const json = editor.getJSON();
-        const seenSrcs = new Set<string>();
-        const orderedSrcs: string[] = [];
-        const walk = (node: any) => {
-          if (node.type === "image" && node.attrs?.src) {
-            if (!seenSrcs.has(node.attrs.src)) {
-              seenSrcs.add(node.attrs.src);
-              orderedSrcs.push(node.attrs.src);
-            }
-          }
-          if (node.content) {
-            for (const child of node.content) walk(child);
-          }
-        };
-        walk(json);
-        const initialEditorImages = orderedSrcs
-          .map((src) => existingImages.find((img) => img.src === src))
-          .filter((img): img is ImageItem => !!img);
-        setEditorImages(initialEditorImages);
+        // エディタが既に準備完了していれば即適用
+        applyFetchedData();
       } catch (err: any) {
         setError(err.message || "記事の読み込みに失敗しました");
-      } finally {
-        setLoading(false);
+        setContentLoading(false);
       }
     })();
-  }, [id, isEdit, editor]);
+  }, [id, isEdit, applyFetchedData]);
+
+  // エディタ準備完了時: データが既に取得済みなら適用
+  useEffect(() => {
+    if (editor) applyFetchedData();
+  }, [editor, applyFetchedData]);
 
   // ドロップダウン外クリックで閉じる
   useEffect(() => {
@@ -455,157 +480,159 @@ export default function ArticleEditor() {
           </div>
         )}
 
-        {/* 編集モードで記事データ読み込み中: タイトルのみ表示してローディング */}
-        {loading ? (
-          <div className="editor-loading-placeholder">
-            <div className="loading-spinner" />
-            <p className="loading-text">記事を読み込み中...</p>
+        {/* メタ情報フォーム */}
+        <div className="form-row">
+          <div className="form-group form-group-flex">
+            <label htmlFor="title">タイトル</label>
+            <input
+              id="title"
+              type="text"
+              className="form-input"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="記事のタイトル"
+              disabled={contentLoading}
+            />
           </div>
-        ) : (
-          <>
-            {/* メタ情報フォーム */}
-            <div className="form-row">
-              <div className="form-group form-group-flex">
-                <label htmlFor="title">タイトル</label>
+          <div className="form-group" style={{ width: 180, flexShrink: 0 }}>
+            <label htmlFor="date">日付</label>
+            <input
+              id="date"
+              type="date"
+              className="form-input"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              disabled={contentLoading}
+            />
+          </div>
+        </div>
+
+        <div className="form-group">
+          <label>カテゴリ</label>
+          <div className="category-checkboxes">
+            {CATEGORIES.map((cat) => (
+              <label key={cat} className="category-checkbox">
                 <input
-                  id="title"
-                  type="text"
-                  className="form-input"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="記事のタイトル"
+                  type="checkbox"
+                  checked={categories.includes(cat)}
+                  onChange={() => handleCategoryToggle(cat)}
+                  disabled={contentLoading}
                 />
-              </div>
-              <div className="form-group" style={{ width: 180, flexShrink: 0 }}>
-                <label htmlFor="date">日付</label>
-                <input
-                  id="date"
-                  type="date"
-                  className="form-input"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                />
-              </div>
-            </div>
+                <span>{cat}</span>
+              </label>
+            ))}
+          </div>
+        </div>
 
-            <div className="form-group">
-              <label>カテゴリ</label>
-              <div className="category-checkboxes">
-                {CATEGORIES.map((cat) => (
-                  <label key={cat} className="category-checkbox">
-                    <input
-                      type="checkbox"
-                      checked={categories.includes(cat)}
-                      onChange={() => handleCategoryToggle(cat)}
-                    />
-                    <span>{cat}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
+        <div className="form-group">
+          <label htmlFor="outline">概要 (outline)</label>
+          <input
+            id="outline"
+            type="text"
+            className="form-input"
+            value={outline}
+            onChange={(e) => setOutline(e.target.value)}
+            placeholder="記事の概要を入力..."
+            disabled={contentLoading}
+          />
+        </div>
 
-            <div className="form-group">
-              <label htmlFor="outline">概要 (outline)</label>
-              <input
-                id="outline"
-                type="text"
-                className="form-input"
-                value={outline}
-                onChange={(e) => setOutline(e.target.value)}
-                placeholder="記事の概要を入力..."
-              />
-            </div>
-
-            {/* WYSIWYG エディタ */}
-            <div className="form-group">
-              <label>本文</label>
-              <div className="wysiwyg-toolbar">
+        {/* WYSIWYG エディタ */}
+        <div className="form-group">
+          <label>本文</label>
+          <div className="wysiwyg-toolbar">
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={handleImageInsert}
+              disabled={contentLoading}
+            >
+              画像を挿入
+            </button>
+            {imageList.length > 0 && (
+              <div className="image-pool-wrapper" ref={imagePoolRef}>
                 <button
                   type="button"
                   className="btn btn-secondary btn-sm"
-                  onClick={handleImageInsert}
+                  onClick={toggleImagePool}
+                  disabled={contentLoading}
                 >
-                  画像を挿入
+                  追加済み画像から選択
                 </button>
-                {imageList.length > 0 && (
-                  <div className="image-pool-wrapper" ref={imagePoolRef}>
-                    <button
-                      type="button"
-                      className="btn btn-secondary btn-sm"
-                      onClick={toggleImagePool}
-                    >
-                      追加済み画像から選択
-                    </button>
-                    {showImagePool && (
-                      <div className="image-pool-dropdown">
-                        {unusedImages.length === 0 ? (
-                          <p className="image-pool-empty">
-                            再挿入可能な画像はありません
-                          </p>
-                        ) : (
-                          <div className="image-pool-grid">
-                            {unusedImages.map((img, idx) => (
-                              <div
-                                key={idx}
-                                className="image-pool-item"
-                                onClick={() => handleReinsertImage(img)}
-                              >
-                                <ImageWithLoader
-                                  src={img.src}
-                                  alt={img.filename}
-                                  wrapperClassName="image-pool-item-img-wrapper"
-                                />
-                                <span>{img.filename}</span>
-                              </div>
-                            ))}
+                {showImagePool && (
+                  <div className="image-pool-dropdown">
+                    {unusedImages.length === 0 ? (
+                      <p className="image-pool-empty">
+                        再挿入可能な画像はありません
+                      </p>
+                    ) : (
+                      <div className="image-pool-grid">
+                        {unusedImages.map((img, idx) => (
+                          <div
+                            key={idx}
+                            className="image-pool-item"
+                            onClick={() => handleReinsertImage(img)}
+                          >
+                            <ImageWithLoader
+                              src={img.src}
+                              alt={img.filename}
+                              wrapperClassName="image-pool-item-img-wrapper"
+                            />
+                            <span>{img.filename}</span>
                           </div>
-                        )}
+                        ))}
                       </div>
                     )}
                   </div>
                 )}
               </div>
-              <div className="wysiwyg-editor-wrapper">
-                <EditorContent editor={editor} />
-              </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                style={{ display: "none" }}
-                onChange={handleFileChange}
-              />
-            </div>
-
-            {/* サムネイル選択 */}
-            {editorImages.length > 0 && (
-              <div className="image-list">
-                <label>サムネイル画像を選択 (クリックで選択)</label>
-                <div className="image-thumbnails">
-                  {editorImages.map((img, idx) => (
-                    <div
-                      key={img.src}
-                      className={`image-thumb ${idx === thumbnailIndex ? "image-thumb-selected" : ""}`}
-                      onClick={() => setThumbnailIndex(idx)}
-                    >
-                      <ImageWithLoader
-                        src={img.src}
-                        alt={img.filename}
-                        wrapperClassName="image-thumb-img-wrapper"
-                      />
-                      <span className="image-label">
-                        {img.filename}
-                        {idx === thumbnailIndex && (
-                          <span className="thumb-badge">THUMB</span>
-                        )}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+            )}
+          </div>
+          <div className="wysiwyg-editor-wrapper">
+            {contentLoading && (
+              <div className="editor-content-loading-overlay">
+                <div className="loading-spinner" />
+                <p className="loading-text">本文を読み込み中...</p>
               </div>
             )}
-          </>
+            <EditorContent editor={editor} />
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            style={{ display: "none" }}
+            onChange={handleFileChange}
+          />
+        </div>
+
+        {/* サムネイル選択 */}
+        {editorImages.length > 0 && (
+          <div className="image-list">
+            <label>サムネイル画像を選択 (クリックで選択)</label>
+            <div className="image-thumbnails">
+              {editorImages.map((img, idx) => (
+                <div
+                  key={img.src}
+                  className={`image-thumb ${idx === thumbnailIndex ? "image-thumb-selected" : ""}`}
+                  onClick={() => setThumbnailIndex(idx)}
+                >
+                  <ImageWithLoader
+                    src={img.src}
+                    alt={img.filename}
+                    wrapperClassName="image-thumb-img-wrapper"
+                  />
+                  <span className="image-label">
+                    {img.filename}
+                    {idx === thumbnailIndex && (
+                      <span className="thumb-badge">THUMB</span>
+                    )}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
       </div>
 
@@ -621,7 +648,7 @@ export default function ArticleEditor() {
         <button
           className="btn btn-primary"
           onClick={handleSubmit}
-          disabled={submitting || loading}
+          disabled={submitting || contentLoading}
         >
           {submitting ? "送信中..." : isEdit ? "更新" : "プレビュー申請"}
         </button>

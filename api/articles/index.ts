@@ -14,7 +14,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // PR一覧とVercelデプロイ一覧を並列取得
     const vercelToken = process.env.VERCEL_TOKEN;
-    const vercelProjectId = process.env.VERCEL_PROJECT_ID;
+    const vercelProjectId = process.env.VERCEL_BLOG_PROJECT_ID;
 
     const [{ data: pulls }, deployments] = await Promise.all([
       octokit.pulls.list({

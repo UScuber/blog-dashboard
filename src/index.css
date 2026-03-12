@@ -6,25 +6,6 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ===========================
-   TipTap Editor
-   =========================== */
-.tiptap-editor {
-  @apply p-4 min-h-[280px] outline-none;
-}
-
-.tiptap-editor .tiptap {
-  @apply outline-none min-h-[260px];
-}
-
-.tiptap-editor .tiptap p {
-  @apply mb-2;
-}
-
-.tiptap-editor .tiptap img {
-  @apply max-w-[450px] rounded-sm my-2 block max-md:max-w-full;
-}
-
-/* ===========================
    Animations
    =========================== */
 @keyframes spin {

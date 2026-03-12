@@ -1,24 +1,17 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useEditor, EditorContent } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
-import Image from "@tiptap/extension-image";
-import { fetchArticle, createArticle, updateArticle } from "../lib/api";
+import {
+  fetchArticle,
+  createArticle,
+  updateArticle,
+  fetchImageUrl,
+} from "../lib/api";
 import { showToast } from "../lib/toast";
 import { validateTitle } from "../lib/validation";
-import {
-  parseMarkdown,
-  htmlToBody,
-  toProxyUrl,
-  resetCacheBuster,
-} from "../lib/parser";
-import { compressImage } from "../lib/imageCompressor";
+import { parseMarkdown, toProxyUrl, resetCacheBuster } from "../lib/parser";
+import type { ImageItem } from "../lib/types";
 import { CATEGORIES } from "../lib/types";
-import type {
-  ImageItem,
-  CreateArticleInput,
-  UpdateArticleInput,
-} from "../lib/types";
+import type { CreateArticleInput, UpdateArticleInput } from "../lib/types";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Input } from "./ui/input";
@@ -26,7 +19,7 @@ import { Label } from "./ui/label";
 import { LoadingOverlay } from "./LoadingOverlay";
 import { LoadingScreen } from "./LoadingScreen";
 import { ImageWithLoader } from "./ImageWithLoader";
-import { Dropdown } from "./Dropdown";
+import { BlockEditor, useBlockEditor } from "./block-editor";
 
 export function ArticleEditor() {
   const { id } = useParams<{ id: string }>();
@@ -44,73 +37,24 @@ export function ArticleEditor() {
   const [loadingContent, setLoadingContent] = useState(isEdit);
   const [pageLoading, setPageLoading] = useState(isEdit);
 
-  const [imageList, setImageList] = useState<ImageItem[]>([]);
-  const [editorImages, setEditorImages] = useState<ImageItem[]>([]);
-  const [thumbnailIndex, setThumbnailIndex] = useState(0);
-  const [imagePoolOpen, setImagePoolOpen] = useState(false);
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const imageListRef = useRef<ImageItem[]>(imageList);
-  imageListRef.current = imageList;
-
-  const editor = useEditor({
-    extensions: [
-      StarterKit.configure({
-        heading: false,
-        codeBlock: false,
-        blockquote: false,
-        bulletList: false,
-        orderedList: false,
-        listItem: false,
-        horizontalRule: false,
-      }),
-      Image.configure({ inline: false }),
-    ],
-    editable: !isEdit,
-    content: "",
-  });
-
-  const syncEditorImages = useCallback(() => {
-    if (!editor) return;
-    const json = editor.getJSON();
-    const srcs: string[] = [];
-    const walk = (node: Record<string, unknown>) => {
-      if (node.type === "image" && node.attrs) {
-        const attrs = node.attrs as { src?: string };
-        if (attrs.src) srcs.push(attrs.src);
-      }
-      if (Array.isArray(node.content)) {
-        node.content.forEach((child: Record<string, unknown>) => walk(child));
-      }
-    };
-    walk(json as Record<string, unknown>);
-
-    setImageList((prev) => {
-      const imgs = srcs
-        .map((src) => prev.find((img) => img.src === src))
-        .filter((img): img is ImageItem => Boolean(img));
-      setEditorImages(imgs);
-
-      setThumbnailIndex((prevIdx) => {
-        if (imgs.length === 0) return 0;
-        if (prevIdx >= imgs.length) return 0;
-        return prevIdx;
-      });
-
-      return prev;
-    });
-  }, [editor]);
+  const {
+    blocks,
+    deletedImages,
+    githubImages,
+    thumbnailIndex,
+    setThumbnailIndex,
+    addBlock,
+    removeBlock,
+    updateBlock,
+    moveBlock,
+    restoreImage,
+    loadFromParsed,
+    getImages,
+    serializeToBody,
+  } = useBlockEditor();
 
   useEffect(() => {
-    if (!editor) return;
-    editor.on("update", syncEditorImages);
-    return () => {
-      editor.off("update", syncEditorImages);
-    };
-  }, [editor, syncEditorImages]);
-
-  useEffect(() => {
-    if (!isEdit || !id || !editor) return;
+    if (!isEdit || !id) return;
 
     resetCacheBuster();
 
@@ -124,32 +68,24 @@ export function ArticleEditor() {
         setCategories(parsed.categories);
         setOutline(parsed.outline);
 
-        const existingImgs: ImageItem[] = parsed.existingImages.map(
-          (path, i) => ({
-            src: toProxyUrl(path, article.branch),
-            data: "",
-            isNew: false,
-            originalPath: path,
-            filename: path.split("/").pop() || `image${i}.jpg`,
+        const resolvedImages: ImageItem[] = await Promise.all(
+          parsed.existingImages.map(async (path, i) => {
+            const proxyUrl = toProxyUrl(path, article.branch);
+            const blobUrl = await fetchImageUrl(proxyUrl);
+            return {
+              src: blobUrl,
+              data: "",
+              isNew: false,
+              originalPath: path,
+              filename: path.split("/").pop() || `image${i}.jpg`,
+            };
           }),
         );
 
-        setImageList(existingImgs);
+        loadFromParsed(parsed, resolvedImages);
 
-        editor.commands.setContent(parsed.bodyHtml);
-
-        if (parsed.thumb) {
-          const thumbIdx = existingImgs.findIndex(
-            (img) => img.filename === parsed.thumb,
-          );
-          if (thumbIdx >= 0) setThumbnailIndex(thumbIdx);
-        }
-
-        editor.setEditable(true);
         setLoadingContent(false);
         setPageLoading(false);
-
-        setTimeout(() => syncEditorImages(), 0);
       } catch (err: unknown) {
         const message =
           err instanceof Error ? err.message : "記事の取得に失敗しました";
@@ -160,7 +96,7 @@ export function ArticleEditor() {
     };
 
     load();
-  }, [isEdit, id, editor, syncEditorImages]);
+  }, [isEdit, id, loadFromParsed]);
 
   const handleTitleChange = (value: string) => {
     setTitle(value);
@@ -178,112 +114,6 @@ export function ArticleEditor() {
     );
   };
 
-  const addImagesToEditor = useCallback(
-    async (files: FileList | File[]) => {
-      if (!editor) return;
-      const fileArray = Array.from(files);
-
-      for (const file of fileArray) {
-        try {
-          const dataUrl = await compressImage(file);
-
-          const existing = imageListRef.current.find(
-            (img) => img.data === dataUrl,
-          );
-          if (existing) {
-            editor.chain().focus().setImage({ src: existing.src }).run();
-            continue;
-          }
-
-          const ext = file.name.split(".").pop() || "jpg";
-          const filename = `image_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
-
-          const newImage: ImageItem = {
-            src: dataUrl,
-            data: dataUrl,
-            isNew: true,
-            originalPath: "",
-            filename,
-          };
-
-          setImageList((prev) => [...prev, newImage]);
-          editor.chain().focus().setImage({ src: dataUrl }).run();
-        } catch (err: unknown) {
-          const message =
-            err instanceof Error ? err.message : "画像の処理に失敗しました";
-          showToast(message, "error");
-        }
-      }
-    },
-    [editor],
-  );
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      addImagesToEditor(e.target.files);
-      e.target.value = "";
-    }
-  };
-
-  const addImagesRef = useRef(addImagesToEditor);
-  addImagesRef.current = addImagesToEditor;
-
-  useEffect(() => {
-    if (!editor) return;
-
-    const handlePaste = (_view: unknown, event: ClipboardEvent) => {
-      const items = event.clipboardData?.items;
-      if (!items) return false;
-
-      const imageFiles: File[] = [];
-      for (let i = 0; i < items.length; i++) {
-        if (items[i].type.startsWith("image/")) {
-          const file = items[i].getAsFile();
-          if (file) imageFiles.push(file);
-        }
-      }
-
-      if (imageFiles.length > 0) {
-        event.preventDefault();
-        addImagesRef.current(imageFiles);
-        return true;
-      }
-      return false;
-    };
-
-    let dom: HTMLElement | null = null;
-
-    const attach = () => {
-      try {
-        dom = editor.view.dom;
-      } catch {
-        return;
-      }
-      dom?.addEventListener("paste", handlePaste as unknown as EventListener);
-    };
-
-    attach();
-    editor.on("create", attach);
-
-    return () => {
-      dom?.removeEventListener(
-        "paste",
-        handlePaste as unknown as EventListener,
-      );
-      editor.off("create", attach);
-    };
-  }, [editor]);
-
-  const unusedImages = imageList.filter(
-    (img) => !editorImages.some((ei) => ei.src === img.src),
-  );
-
-  const reinsertImage = (img: ImageItem) => {
-    if (!editor) return;
-    editor.chain().focus().setImage({ src: img.src }).run();
-    setImagePoolOpen(false);
-  };
-
   const handleSubmit = async () => {
     const titleValidation = validateTitle(title);
     if (!titleValidation.valid) {
@@ -291,26 +121,12 @@ export function ArticleEditor() {
       return;
     }
 
-    const html = editor?.getHTML() || "";
-    const { body, imageSrcs } = htmlToBody(html);
+    const { body, images } = serializeToBody();
 
-    if (!body.trim() && imageSrcs.length === 0) {
+    if (!body.trim() && images.length === 0) {
       showToast("本文を入力してください", "error");
       return;
     }
-
-    const orderedImages = imageSrcs
-      .map((src) => {
-        const exact = imageList.find((img) => img.src === src);
-        if (exact) return exact;
-        const proxy = imageList.find(
-          (img) =>
-            src.includes(encodeURIComponent(img.originalPath)) ||
-            img.src === src,
-        );
-        return proxy || imageList[0];
-      })
-      .filter(Boolean);
 
     setSubmitting(true);
 
@@ -322,7 +138,7 @@ export function ArticleEditor() {
           categories,
           outline,
           body,
-          images: orderedImages.map((img) => ({
+          images: images.map((img) => ({
             filename: img.filename,
             data: img.isNew ? img.data : "",
             isNew: img.isNew,
@@ -339,7 +155,7 @@ export function ArticleEditor() {
           categories,
           outline,
           body,
-          images: orderedImages
+          images: images
             .filter((img) => img.isNew)
             .map((img) => ({
               filename: img.filename,
@@ -358,6 +174,8 @@ export function ArticleEditor() {
       setSubmitting(false);
     }
   };
+
+  const editorImages = getImages();
 
   if (pageLoading) {
     return <LoadingScreen message="記事を読み込み中..." />;
@@ -429,73 +247,21 @@ export function ArticleEditor() {
           />
         </div>
 
-        <div className="flex gap-2 mt-4 mb-2 flex-wrap max-md:flex-col">
-          <Button
-            variant="secondary"
-            className="max-md:w-full"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            画像を挿入
-          </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            multiple
-            className="hidden"
-            onChange={handleFileSelect}
-          />
-
-          {isEdit && (
-            <Dropdown
-              open={imagePoolOpen}
-              onClose={() => setImagePoolOpen(false)}
-              mobileMode="bottomsheet"
-              trigger={
-                <Button
-                  variant="secondary"
-                  className="max-md:w-full"
-                  onClick={() => setImagePoolOpen(!imagePoolOpen)}
-                >
-                  追加済み画像から選択
-                </Button>
-              }
-            >
-              <div className="p-3">
-                {unusedImages.length === 0 ? (
-                  <p className="text-slate-500 text-[13px] text-center py-5">
-                    再挿入可能な画像はありません
-                  </p>
-                ) : (
-                  <div className="grid grid-cols-3 gap-2">
-                    {unusedImages.map((img, i) => (
-                      <button
-                        key={i}
-                        className="bg-transparent border border-slate-200 rounded-sm p-1 cursor-pointer transition-colors hover:border-blue-600"
-                        onClick={() => reinsertImage(img)}
-                      >
-                        <ImageWithLoader
-                          src={img.src}
-                          alt={img.filename}
-                          size="sm"
-                        />
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </Dropdown>
-          )}
-        </div>
-
-        <div className="relative border border-slate-200 rounded-md min-h-75 mb-4">
-          {loadingContent && <LoadingOverlay message="本文を読み込み中..." />}
-          <EditorContent editor={editor} className="tiptap-editor" />
-          {editor && editor.isEmpty && !loadingContent && (
-            <div className="absolute top-4 left-4 text-slate-400 text-sm pointer-events-none">
-              記事の本文を入力...
-            </div>
-          )}
+        <div className="mt-4 mb-4">
+          <Label className="mb-2 block">本文</Label>
+          <div className="relative">
+            {loadingContent && <LoadingOverlay message="本文を読み込み中..." />}
+            <BlockEditor
+              blocks={blocks}
+              deletedImages={deletedImages}
+              githubImages={githubImages}
+              onAddBlock={addBlock}
+              onRemoveBlock={removeBlock}
+              onUpdateBlock={updateBlock}
+              onMoveBlock={moveBlock}
+              onRestoreImage={restoreImage}
+            />
+          </div>
         </div>
 
         {editorImages.length > 0 && (

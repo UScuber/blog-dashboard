@@ -40,7 +40,7 @@ export function compressImage(file: File): Promise<string> {
 
         ctx.drawImage(img, 0, 0, newW, newH);
         const dataUrl = canvas.toDataURL("image/jpeg", JPEG_QUALITY);
-        resolve(dataUrl);
+        resolve(dataUrl.split(",")[1]);
       };
       img.onerror = () => reject(new Error("画像の読み込みに失敗しました"));
       img.src = e.target?.result as string;

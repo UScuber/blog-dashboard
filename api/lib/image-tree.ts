@@ -61,14 +61,15 @@ export async function buildImageTreeEntries(
           });
         }
 
-        const existingBlob = existingFiles.get(img.originalPath);
+        const normalizedPath = img.originalPath.replace(/^\//, "");
+        const existingBlob = existingFiles.get(normalizedPath);
         if (!existingBlob) {
           throw new HTTPException(400, {
-            message: `既存画像ファイルが見つかりません: ${img.originalPath}`,
+            message: `既存画像ファイルが見つかりません: ${normalizedPath}`,
           });
         }
 
-        if (img.originalPath !== newPath) {
+        if (normalizedPath !== newPath) {
           // パスが変わる場合: 新パスにBlob SHAを再利用
           treeEntries.push({
             path: newPath,

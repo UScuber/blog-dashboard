@@ -19,7 +19,7 @@ app.use("/*", authMiddleware);
 app.get("/proxy-image", proxyImage);
 app.get("/articles", listArticles);
 app.get("/articles/:id", getArticle);
-app.put("/articles/:id", updateArticle);
+app.post("/articles/:id", updateArticle);
 app.post("/create", createArticle);
 app.post("/publish", publishArticle);
 app.get("/deployments", getDeployments);
@@ -44,4 +44,14 @@ app.onError((err, c) => {
   return c.json({ error: err.message || "内部サーバーエラー" }, 500);
 });
 
-export default handle(app);
+// vercel dev は body をパース済みにするが rawBody を設定しないため補完する
+const listener = handle(app);
+export default (
+  req: import("http").IncomingMessage & { body?: unknown; rawBody?: Buffer },
+  res: import("http").ServerResponse,
+) => {
+  if (!req.rawBody && req.body) {
+    req.rawBody = Buffer.from(JSON.stringify(req.body));
+  }
+  return listener(req, res);
+};

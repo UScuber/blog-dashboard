@@ -14,7 +14,14 @@ import type { ArticleInput } from "../lib/types";
 import crypto from "crypto";
 
 export default async function createArticle(c: Context) {
-  const body: ArticleInput = await c.req.json();
+  let body: ArticleInput;
+  try {
+    body = await c.req.json();
+  } catch {
+    throw new HTTPException(400, {
+      message: "リクエストボディが空または不正なJSONです",
+    });
+  }
   const {
     title,
     date,

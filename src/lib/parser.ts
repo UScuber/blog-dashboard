@@ -123,25 +123,3 @@ export function parseMarkdown(content: string, branch?: string): ParsedArticle {
     existingImages,
   };
 }
-
-export function htmlToBody(html: string): {
-  body: string;
-  imageSrcs: string[];
-} {
-  const imageSrcs: string[] = [];
-  let index = 0;
-
-  let text = html.replace(/<img\s[^>]*src="([^"]*)"[^>]*>/g, (_match, src) => {
-    imageSrcs.push(src);
-    const placeholder = `[image:${index}]`;
-    index++;
-    return placeholder;
-  });
-
-  text = text.replace(/<\/p>\s*<p>/g, "\n\n");
-  text = text.replace(/<[^>]+>/g, "");
-  text = text.replace(/\n{3,}/g, "\n\n");
-  text = text.trim();
-
-  return { body: text, imageSrcs };
-}

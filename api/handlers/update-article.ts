@@ -16,7 +16,14 @@ export default async function updateArticle(c: Context) {
     throw new HTTPException(400, { message: "不正なPR番号です" });
   }
 
-  const body: ArticleInput = await c.req.json();
+  let body: ArticleInput;
+  try {
+    body = await c.req.json();
+  } catch {
+    throw new HTTPException(400, {
+      message: "リクエストボディが空または不正なJSONです",
+    });
+  }
   const {
     title,
     date,

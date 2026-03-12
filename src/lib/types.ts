@@ -62,6 +62,21 @@ export interface UpdateArticleInput {
   thumbnailIndex: number;
 }
 
+export interface TextBlock {
+  id: string;
+  type: "text";
+  content: string;
+}
+
+export interface ImageBlock {
+  id: string;
+  type: "image";
+  content: string;
+  image: ImageItem;
+}
+
+export type Block = TextBlock | ImageBlock;
+
 export interface ParsedArticle {
   title: string;
   date: string;

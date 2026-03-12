@@ -4,7 +4,14 @@ import { RequestError } from "@octokit/request-error";
 import { getOctokit, getRepoInfo } from "../lib/github";
 
 export default async function publishArticle(c: Context) {
-  const body = await c.req.json();
+  let body: { pullNumber?: number };
+  try {
+    body = await c.req.json();
+  } catch {
+    throw new HTTPException(400, {
+      message: "リクエストボディが空または不正なJSONです",
+    });
+  }
   const { pullNumber } = body;
 
   if (!pullNumber) {

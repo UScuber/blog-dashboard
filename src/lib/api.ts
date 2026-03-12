@@ -53,7 +53,7 @@ export function updateArticle(
   input: UpdateArticleInput,
 ): Promise<void> {
   return request(`/api/articles/${id}`, {
-    method: "PUT",
+    method: "POST",
     body: JSON.stringify(input),
   });
 }
@@ -63,4 +63,16 @@ export function publishArticle(pullNumber: number): Promise<void> {
     method: "POST",
     body: JSON.stringify({ pullNumber }),
   });
+}
+
+export async function fetchImageUrl(proxyUrl: string): Promise<string> {
+  const token = await getIdToken();
+  const res = await fetch(proxyUrl, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    throw new Error("画像の取得に失敗しました");
+  }
+  const blob = await res.blob();
+  return URL.createObjectURL(blob);
 }

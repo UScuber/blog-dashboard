@@ -30,7 +30,10 @@ export function serializeToBody(blocks: Block[]): {
 
   for (const block of blocks) {
     if (block.type === "text") {
-      parts.push(block.content);
+      // 空行（\n\n）→ <br> 区切り、単一改行（\n）→ 段落区切り（\n\n）
+      const paragraphs = block.content.split(/\n\n+/);
+      const converted = paragraphs.map((p) => p.replace(/\n/g, "\n\n"));
+      parts.push(converted.join(BLOCK_SEPARATOR));
     } else {
       const imageIndex = images.length;
       images.push(block.image);
@@ -67,11 +70,15 @@ export function deserializeFromParsed(
         const imageIndex = parseInt(imageMatch[1], 10);
         const image = existingImgs[imageIndex];
         if (image) {
-          const content = trimmed.replace(/\n*\[image:\d+\]\n*/g, "").trim();
+          const content = trimmed
+            .replace(/\n*\[image:\d+\]\n*/g, "")
+            .trim()
+            .replace(/\n\n/g, "\n");
           blocks.push(createImageBlock(image, content));
         }
       } else {
-        blocks.push(createTextBlock(trimmed));
+        // \n\n を \n に戻す（serializeToBody の逆変換）
+        blocks.push(createTextBlock(trimmed.replace(/\n\n/g, "\n")));
       }
     }
   } else {
@@ -85,14 +92,18 @@ export function deserializeFromParsed(
         const imageIndex = parseInt(imageMatch[1], 10);
         const image = existingImgs[imageIndex];
         if (image) {
-          blocks.push(createImageBlock(image, pendingText.trim()));
+          blocks.push(
+            createImageBlock(image, pendingText.trim().replace(/\n\n/g, "\n")),
+          );
           pendingText = "";
         }
       } else {
         const trimmed = part.trim();
         if (trimmed) {
           if (pendingText) {
-            blocks.push(createTextBlock(pendingText.trim()));
+            blocks.push(
+              createTextBlock(pendingText.trim().replace(/\n\n/g, "\n")),
+            );
           }
           pendingText = trimmed;
         }
@@ -100,7 +111,9 @@ export function deserializeFromParsed(
     }
 
     if (pendingText.trim()) {
-      blocks.push(createTextBlock(pendingText.trim()));
+      blocks.push(
+        createTextBlock(pendingText.trim().replace(/\n\n/g, "\n")),
+      );
     }
   }
 

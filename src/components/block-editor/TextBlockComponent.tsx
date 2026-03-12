@@ -1,15 +1,19 @@
 import { useRef, useEffect } from "react";
 import type { TextBlock } from "../../lib/types";
 
-interface TextBlockComponentProps {
-  block: TextBlock;
-  onChange: (content: string) => void;
+interface AutoResizeTextareaProps {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  className?: string;
 }
 
-export function TextBlockComponent({
-  block,
+export function AutoResizeTextarea({
+  value,
   onChange,
-}: TextBlockComponentProps) {
+  placeholder,
+  className = "w-full p-3 border border-slate-200 rounded-md resize-none text-base leading-relaxed outline-none focus:border-blue-500 transition-colors overflow-hidden",
+}: AutoResizeTextareaProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -17,7 +21,7 @@ export function TextBlockComponent({
     if (!el) return;
     el.style.height = "auto";
     el.style.height = `${el.scrollHeight}px`;
-  }, [block.content]);
+  }, [value]);
 
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     onChange(e.target.value);
@@ -29,11 +33,30 @@ export function TextBlockComponent({
   return (
     <textarea
       ref={textareaRef}
-      value={block.content}
+      value={value}
       onChange={handleInput}
-      placeholder="テキストを入力..."
-      className="w-full min-h-[80px] p-3 border border-slate-200 rounded-md resize-none text-base leading-relaxed outline-none focus:border-blue-500 transition-colors"
+      placeholder={placeholder}
+      rows={1}
+      className={className}
       style={{ fontSize: "16px" }}
+    />
+  );
+}
+
+interface TextBlockComponentProps {
+  block: TextBlock;
+  onChange: (content: string) => void;
+}
+
+export function TextBlockComponent({
+  block,
+  onChange,
+}: TextBlockComponentProps) {
+  return (
+    <AutoResizeTextarea
+      value={block.content}
+      onChange={onChange}
+      placeholder="テキストを入力..."
     />
   );
 }

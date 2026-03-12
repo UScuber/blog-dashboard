@@ -1,7 +1,7 @@
-import { useRef, useEffect } from "react";
 import type { ImageBlock, ImageItem } from "../../lib/types";
 import { Button } from "../ui/button";
 import { ImagePicker } from "./ImagePicker";
+import { AutoResizeTextarea } from "./TextBlockComponent";
 
 interface ImageBlockComponentProps {
   block: ImageBlock;
@@ -18,31 +18,13 @@ export function ImageBlockComponent({
   onSelectExistingImage,
   githubImages,
 }: ImageBlockComponentProps) {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => {
-    const el = textareaRef.current;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
-  }, [block.content]);
-
-  const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    onContentChange(e.target.value);
-    const el = e.target;
-    el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
-  };
-
   return (
     <div className="border border-slate-200 rounded-md overflow-hidden">
-      <textarea
-        ref={textareaRef}
+      <AutoResizeTextarea
         value={block.content}
-        onChange={handleInput}
+        onChange={onContentChange}
         placeholder="画像の説明を入力..."
-        className="w-full min-h-[60px] p-3 resize-none text-base leading-relaxed outline-none border-b border-slate-200 focus:border-b-blue-500 transition-colors"
-        style={{ fontSize: "16px" }}
+        className="w-full p-3 resize-none text-base leading-relaxed outline-none border-b border-slate-200 focus:border-b-blue-500 transition-colors overflow-hidden"
       />
       <div className="p-3">
         <img

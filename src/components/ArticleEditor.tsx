@@ -6,10 +6,19 @@ import Image from "@tiptap/extension-image";
 import { fetchArticle, createArticle, updateArticle } from "../lib/api";
 import { showToast } from "../lib/toast";
 import { validateTitle } from "../lib/validation";
-import { parseMarkdown, htmlToBody, toProxyUrl, resetCacheBuster } from "../lib/parser";
+import {
+  parseMarkdown,
+  htmlToBody,
+  toProxyUrl,
+  resetCacheBuster,
+} from "../lib/parser";
 import { compressImage } from "../lib/imageCompressor";
 import { CATEGORIES } from "../lib/types";
-import type { ImageItem, CreateArticleInput, UpdateArticleInput } from "../lib/types";
+import type {
+  ImageItem,
+  CreateArticleInput,
+  UpdateArticleInput,
+} from "../lib/types";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Input } from "./ui/input";
@@ -25,7 +34,9 @@ export function ArticleEditor() {
   const isEdit = Boolean(id);
 
   const [title, setTitle] = useState("");
-  const [date, setDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [date, setDate] = useState(
+    () => new Date().toISOString().split("T")[0],
+  );
   const [categories, setCategories] = useState<string[]>([]);
   const [outline, setOutline] = useState("");
   const [titleError, setTitleError] = useState("");
@@ -120,7 +131,7 @@ export function ArticleEditor() {
             isNew: false,
             originalPath: path,
             filename: path.split("/").pop() || `image${i}.jpg`,
-          })
+          }),
         );
 
         setImageList(existingImgs);
@@ -129,7 +140,7 @@ export function ArticleEditor() {
 
         if (parsed.thumb) {
           const thumbIdx = existingImgs.findIndex(
-            (img) => img.filename === parsed.thumb
+            (img) => img.filename === parsed.thumb,
           );
           if (thumbIdx >= 0) setThumbnailIndex(thumbIdx);
         }
@@ -163,44 +174,49 @@ export function ArticleEditor() {
 
   const toggleCategory = (cat: string) => {
     setCategories((prev) =>
-      prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]
+      prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat],
     );
   };
 
-  const addImagesToEditor = useCallback(async (files: FileList | File[]) => {
-    if (!editor) return;
-    const fileArray = Array.from(files);
+  const addImagesToEditor = useCallback(
+    async (files: FileList | File[]) => {
+      if (!editor) return;
+      const fileArray = Array.from(files);
 
-    for (const file of fileArray) {
-      try {
-        const dataUrl = await compressImage(file);
+      for (const file of fileArray) {
+        try {
+          const dataUrl = await compressImage(file);
 
-        const existing = imageListRef.current.find((img) => img.data === dataUrl);
-        if (existing) {
-          editor.chain().focus().setImage({ src: existing.src }).run();
-          continue;
+          const existing = imageListRef.current.find(
+            (img) => img.data === dataUrl,
+          );
+          if (existing) {
+            editor.chain().focus().setImage({ src: existing.src }).run();
+            continue;
+          }
+
+          const ext = file.name.split(".").pop() || "jpg";
+          const filename = `image_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+          const newImage: ImageItem = {
+            src: dataUrl,
+            data: dataUrl,
+            isNew: true,
+            originalPath: "",
+            filename,
+          };
+
+          setImageList((prev) => [...prev, newImage]);
+          editor.chain().focus().setImage({ src: dataUrl }).run();
+        } catch (err: unknown) {
+          const message =
+            err instanceof Error ? err.message : "画像の処理に失敗しました";
+          showToast(message, "error");
         }
-
-        const ext = file.name.split(".").pop() || "jpg";
-        const filename = `image_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
-
-        const newImage: ImageItem = {
-          src: dataUrl,
-          data: dataUrl,
-          isNew: true,
-          originalPath: "",
-          filename,
-        };
-
-        setImageList((prev) => [...prev, newImage]);
-        editor.chain().focus().setImage({ src: dataUrl }).run();
-      } catch (err: unknown) {
-        const message =
-          err instanceof Error ? err.message : "画像の処理に失敗しました";
-        showToast(message, "error");
       }
-    }
-  }, [editor]);
+    },
+    [editor],
+  );
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -232,14 +248,20 @@ export function ArticleEditor() {
       return false;
     };
 
-    editor.view.dom.addEventListener("paste", handlePaste as unknown as EventListener);
+    editor.view.dom.addEventListener(
+      "paste",
+      handlePaste as unknown as EventListener,
+    );
     return () => {
-      editor.view.dom.removeEventListener("paste", handlePaste as unknown as EventListener);
+      editor.view.dom.removeEventListener(
+        "paste",
+        handlePaste as unknown as EventListener,
+      );
     };
   }, [editor, addImagesToEditor]);
 
   const unusedImages = imageList.filter(
-    (img) => !editorImages.some((ei) => ei.src === img.src)
+    (img) => !editorImages.some((ei) => ei.src === img.src),
   );
 
   const reinsertImage = (img: ImageItem) => {
@@ -263,14 +285,18 @@ export function ArticleEditor() {
       return;
     }
 
-    const orderedImages = imageSrcs.map((src) => {
-      const exact = imageList.find((img) => img.src === src);
-      if (exact) return exact;
-      const proxy = imageList.find(
-        (img) => src.includes(encodeURIComponent(img.originalPath)) || img.src === src
-      );
-      return proxy || imageList[0];
-    }).filter(Boolean);
+    const orderedImages = imageSrcs
+      .map((src) => {
+        const exact = imageList.find((img) => img.src === src);
+        if (exact) return exact;
+        const proxy = imageList.find(
+          (img) =>
+            src.includes(encodeURIComponent(img.originalPath)) ||
+            img.src === src,
+        );
+        return proxy || imageList[0];
+      })
+      .filter(Boolean);
 
     setSubmitting(true);
 
@@ -312,8 +338,7 @@ export function ArticleEditor() {
       }
       navigate("/");
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "送信に失敗しました";
+      const message = err instanceof Error ? err.message : "送信に失敗しました";
       showToast(message, "error");
     } finally {
       setSubmitting(false);
@@ -450,9 +475,7 @@ export function ArticleEditor() {
         </div>
 
         <div className="relative border border-slate-200 rounded-md min-h-75 mb-4">
-          {loadingContent && (
-            <LoadingOverlay message="本文を読み込み中..." />
-          )}
+          {loadingContent && <LoadingOverlay message="本文を読み込み中..." />}
           <EditorContent editor={editor} className="tiptap-editor" />
           {editor && editor.isEmpty && !loadingContent && (
             <div className="absolute top-4 left-4 text-slate-400 text-sm pointer-events-none">
@@ -496,10 +519,7 @@ export function ArticleEditor() {
         >
           戻る
         </Button>
-        <Button
-          onClick={handleSubmit}
-          disabled={submitting}
-        >
+        <Button onClick={handleSubmit} disabled={submitting}>
           {submitting ? "送信中..." : isEdit ? "更新" : "プレビュー申請"}
         </Button>
       </div>

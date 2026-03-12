@@ -11,7 +11,15 @@ const create = new Hono();
 
 create.post("/", async (c) => {
   const body = await c.req.json();
-  const { title, date, body: articleBody, images, categories, outline, thumbnailIndex } = body;
+  const {
+    title,
+    date,
+    body: articleBody,
+    images,
+    categories,
+    outline,
+    thumbnailIndex,
+  } = body;
 
   if (!title || !date || articleBody === undefined) {
     throw new HTTPException(400, {
@@ -135,7 +143,7 @@ create.post("/", async (c) => {
         url: pr.html_url,
       },
     },
-    201
+    201,
   );
 });
 

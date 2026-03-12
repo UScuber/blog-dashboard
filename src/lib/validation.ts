@@ -1,12 +1,12 @@
 // eslint-disable-next-line no-control-regex
 const FORBIDDEN_CHARS = /[/\\:*?"<>|\x00-\x1f]/;
 
-const RESERVED_NAMES =
-  /^(CON|PRN|AUX|NUL|COM[0-9]|LPT[0-9])$/i;
+const RESERVED_NAMES = /^(CON|PRN|AUX|NUL|COM[0-9]|LPT[0-9])$/i;
 
-export function validateTitle(
-  title: string
-): { valid: boolean; error?: string } {
+export function validateTitle(title: string): {
+  valid: boolean;
+  error?: string;
+} {
   if (!title || title.trim().length === 0) {
     return { valid: false, error: "タイトルを入力してください" };
   }

@@ -20,7 +20,7 @@ export function getRepoInfo(): { owner: string; repo: string } {
 
   if (!owner || !repo) {
     throw new Error(
-      "GITHUB_REPO_OWNER または GITHUB_REPO_NAME が設定されていません"
+      "GITHUB_REPO_OWNER または GITHUB_REPO_NAME が設定されていません",
     );
   }
 

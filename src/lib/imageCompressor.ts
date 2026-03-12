@@ -45,7 +45,8 @@ export function compressImage(file: File): Promise<string> {
       img.onerror = () => reject(new Error("画像の読み込みに失敗しました"));
       img.src = e.target?.result as string;
     };
-    reader.onerror = () => reject(new Error("ファイルの読み込みに失敗しました"));
+    reader.onerror = () =>
+      reject(new Error("ファイルの読み込みに失敗しました"));
     reader.readAsDataURL(file);
   });
 }

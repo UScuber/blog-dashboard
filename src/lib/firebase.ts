@@ -39,7 +39,7 @@ export async function getIdToken(): Promise<string> {
 }
 
 export function onAuthStateChanged(
-  callback: (user: User | null) => void
+  callback: (user: User | null) => void,
 ): () => void {
   return firebaseOnAuthStateChanged(auth, callback);
 }

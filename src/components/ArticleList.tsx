@@ -51,7 +51,11 @@ export function ArticleList() {
   }, []);
 
   const handlePublish = async (article: ArticleSummary) => {
-    if (!window.confirm(`「${article.title.replace("post: ", "")}」を公開しますか？`)) {
+    if (
+      !window.confirm(
+        `「${article.title.replace("post: ", "")}」を公開しますか？`,
+      )
+    ) {
       return;
     }
     setPublishingId(article.id);
@@ -60,8 +64,7 @@ export function ArticleList() {
       showToast("記事を公開しました", "success");
       await loadData();
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "公開に失敗しました";
+      const message = err instanceof Error ? err.message : "公開に失敗しました";
       showToast(message, "error");
     } finally {
       setPublishingId(null);
@@ -105,9 +108,18 @@ export function ArticleList() {
     }
     if (dep.previewStatus === "ready" && dep.previewUrl) {
       return (
-        <Button variant="secondary" size="sm" nativeButton={false} render={
-          <a href={dep.previewUrl} target="_blank" rel="noopener noreferrer" />
-        }>
+        <Button
+          variant="secondary"
+          size="sm"
+          nativeButton={false}
+          render={
+            <a
+              href={dep.previewUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            />
+          }
+        >
           プレビュー
         </Button>
       );
@@ -178,10 +190,7 @@ export function ArticleList() {
               </div>
             </div>
             <div className="flex gap-2 px-4 py-3 border-t border-slate-200 bg-slate-50/80 max-md:[&>*]:flex-1">
-              <Button
-                size="sm"
-                onClick={() => navigate(`/edit/${article.id}`)}
-              >
+              <Button size="sm" onClick={() => navigate(`/edit/${article.id}`)}>
                 編集
               </Button>
               {renderPreviewButton(article)}

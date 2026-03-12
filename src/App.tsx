@@ -50,11 +50,17 @@ function Header({ email }: { email: string }) {
 
   return (
     <header className="flex items-center justify-between px-8 h-14 bg-white border-b border-slate-200 sticky top-0 z-100 max-md:h-12 max-md:px-4">
-      <Link to="/" className="text-lg font-bold text-gray-800 no-underline max-md:text-base">
+      <Link
+        to="/"
+        className="text-lg font-bold text-gray-800 no-underline max-md:text-base"
+      >
         記事管理ダッシュボード
       </Link>
       <nav className="flex items-center gap-4 max-md:hidden">
-        <Link to="/" className="text-sm text-slate-500 no-underline transition-colors hover:text-blue-600">
+        <Link
+          to="/"
+          className="text-sm text-slate-500 no-underline transition-colors hover:text-blue-600"
+        >
           記事一覧
         </Link>
         <Button size="sm" onClick={() => navigate("/new")}>

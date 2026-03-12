@@ -23,7 +23,7 @@ function notify() {
 export function showToast(
   message: string,
   type: ToastType = "info",
-  duration = 5000
+  duration = 5000,
 ) {
   const id = nextId++;
   toasts = [...toasts, { id, message, type }];

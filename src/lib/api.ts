@@ -7,10 +7,7 @@ import type {
   UpdateArticleInput,
 } from "./types";
 
-async function request<T>(
-  url: string,
-  options: RequestInit = {}
-): Promise<T> {
+async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
   const token = await getIdToken();
   const res = await fetch(url, {
     ...options,
@@ -42,7 +39,9 @@ export function fetchArticle(id: number): Promise<Article> {
   return request<Article>(`/api/articles/${id}`);
 }
 
-export function createArticle(input: CreateArticleInput): Promise<{ id: number }> {
+export function createArticle(
+  input: CreateArticleInput,
+): Promise<{ id: number }> {
   return request("/api/create", {
     method: "POST",
     body: JSON.stringify(input),
@@ -51,7 +50,7 @@ export function createArticle(input: CreateArticleInput): Promise<{ id: number }
 
 export function updateArticle(
   id: number,
-  input: UpdateArticleInput
+  input: UpdateArticleInput,
 ): Promise<void> {
   return request(`/api/articles/${id}`, {
     method: "PUT",

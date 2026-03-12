@@ -47,7 +47,9 @@ export function HamburgerMenu({ email }: HamburgerMenuProps) {
             onClick={() => setOpen(false)}
           />
           <div className="absolute top-full right-0 z-100 bg-white border border-slate-200 rounded-lg shadow-lg min-w-[200px] py-2">
-            <div className="px-4 py-2.5 text-[13px] text-slate-500">{email}</div>
+            <div className="px-4 py-2.5 text-[13px] text-slate-500">
+              {email}
+            </div>
             <div className="h-px bg-slate-200 my-1" />
             <Link
               to="/"

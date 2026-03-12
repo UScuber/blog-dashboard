@@ -13,10 +13,7 @@ export function toProxyUrl(assetPath: string, branch?: string): string {
   return `/api/proxy-image?${params.toString()}`;
 }
 
-export function parseMarkdown(
-  content: string,
-  branch?: string
-): ParsedArticle {
+export function parseMarkdown(content: string, branch?: string): ParsedArticle {
   const fmMatch = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
   if (!fmMatch) {
     return {
@@ -36,7 +33,9 @@ export function parseMarkdown(
   const rawBody = fmMatch[2];
 
   const getString = (key: string): string => {
-    const m = frontmatter.match(new RegExp(`^${key}:\\s*["']?(.+?)["']?\\s*$`, "m"));
+    const m = frontmatter.match(
+      new RegExp(`^${key}:\\s*["']?(.+?)["']?\\s*$`, "m"),
+    );
     return m ? m[1] : "";
   };
 
@@ -66,12 +65,12 @@ export function parseMarkdown(
     (_match, prefix, src, suffix) => {
       const proxyUrl = toProxyUrl(src, branch);
       return `${prefix}${proxyUrl}${suffix}`;
-    }
+    },
   );
 
   bodyForHtml = bodyForHtml.replace(
     /(\/assets\/img\/[^\s"<>)]+)/g,
-    (assetPath) => toProxyUrl(assetPath, branch)
+    (assetPath) => toProxyUrl(assetPath, branch),
   );
 
   const lines = bodyForHtml.split(/\n\n+/);
@@ -102,12 +101,15 @@ export function parseMarkdown(
   const bodyHtml = htmlParts.join("");
 
   let bodyText = rawBody;
-  bodyText = bodyText.replace(/<img\s[^>]*src="([^"]*)"[^>]*>/g, (_match, src) => {
-    existingImages.push(src);
-    const placeholder = `[image:${imageIndex}]`;
-    imageIndex++;
-    return placeholder;
-  });
+  bodyText = bodyText.replace(
+    /<img\s[^>]*src="([^"]*)"[^>]*>/g,
+    (_match, src) => {
+      existingImages.push(src);
+      const placeholder = `[image:${imageIndex}]`;
+      imageIndex++;
+      return placeholder;
+    },
+  );
 
   return {
     title,
@@ -122,7 +124,10 @@ export function parseMarkdown(
   };
 }
 
-export function htmlToBody(html: string): { body: string; imageSrcs: string[] } {
+export function htmlToBody(html: string): {
+  body: string;
+  imageSrcs: string[];
+} {
   const imageSrcs: string[] = [];
   let index = 0;
 

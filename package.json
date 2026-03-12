@@ -6,7 +6,11 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "eslint \"src/**/*.{ts,tsx}\" \"api/**/*.ts\"",
+    "lint:fix": "eslint --fix \"src/**/*.{ts,tsx}\" \"api/**/*.ts\"",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"api/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"api/**/*.ts\""
   },
   "license": "ISC",
   "devDependencies": {
@@ -21,6 +25,7 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.26",
     "globals": "^16.5.0",
+    "prettier": "^3.8.1",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.57.0",
     "vercel": "^50.31.1",

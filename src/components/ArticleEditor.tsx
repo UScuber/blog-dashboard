@@ -225,6 +225,9 @@ export function ArticleEditor() {
     }
   };
 
+  const addImagesRef = useRef(addImagesToEditor);
+  addImagesRef.current = addImagesToEditor;
+
   useEffect(() => {
     if (!editor) return;
 
@@ -242,23 +245,34 @@ export function ArticleEditor() {
 
       if (imageFiles.length > 0) {
         event.preventDefault();
-        addImagesToEditor(imageFiles);
+        addImagesRef.current(imageFiles);
         return true;
       }
       return false;
     };
 
-    editor.view.dom.addEventListener(
-      "paste",
-      handlePaste as unknown as EventListener,
-    );
+    let dom: HTMLElement | null = null;
+
+    const attach = () => {
+      try {
+        dom = editor.view.dom;
+      } catch {
+        return;
+      }
+      dom?.addEventListener("paste", handlePaste as unknown as EventListener);
+    };
+
+    attach();
+    editor.on("create", attach);
+
     return () => {
-      editor.view.dom.removeEventListener(
+      dom?.removeEventListener(
         "paste",
         handlePaste as unknown as EventListener,
       );
+      editor.off("create", attach);
     };
-  }, [editor, addImagesToEditor]);
+  }, [editor]);
 
   const unusedImages = imageList.filter(
     (img) => !editorImages.some((ei) => ei.src === img.src),

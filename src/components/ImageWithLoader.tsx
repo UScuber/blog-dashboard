@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ImageSkeleton } from "./ImageSkeleton";
 import { Spinner } from "./Spinner";
 
 interface ImageWithLoaderProps {
@@ -24,6 +25,10 @@ export function ImageWithLoader({
     sm: "w-20 h-15",
     md: "w-25 h-20",
   };
+
+  if (!src) {
+    return <ImageSkeleton size={size} />;
+  }
 
   return (
     <div

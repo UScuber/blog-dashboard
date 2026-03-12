@@ -48,6 +48,7 @@ export function ArticleEditor() {
     updateBlock,
     moveBlock,
     restoreImage,
+    updateImageByOriginalPath,
     loadFromParsed,
     getImages,
     serializeToBody,
@@ -68,24 +69,29 @@ export function ArticleEditor() {
         setCategories(parsed.categories);
         setOutline(parsed.outline);
 
-        const resolvedImages: ImageItem[] = await Promise.all(
-          parsed.existingImages.map(async (path, i) => {
-            const proxyUrl = toProxyUrl(path, article.branch);
-            const blobUrl = await fetchImageUrl(proxyUrl);
-            return {
-              src: blobUrl,
-              data: "",
-              isNew: false,
-              originalPath: path,
-              filename: path.split("/").pop() || `image${i}.jpg`,
-            };
+        const placeholderImages: ImageItem[] = parsed.existingImages.map(
+          (path, i) => ({
+            src: "",
+            data: "",
+            isNew: false,
+            originalPath: path,
+            filename: path.split("/").pop() || `image${i}.jpg`,
           }),
         );
 
-        loadFromParsed(parsed, resolvedImages);
-
+        loadFromParsed(parsed, placeholderImages);
         setLoadingContent(false);
         setPageLoading(false);
+
+        parsed.existingImages.forEach((path, i) => {
+          const proxyUrl = toProxyUrl(path, article.branch);
+          fetchImageUrl(proxyUrl).then((blobUrl) => {
+            updateImageByOriginalPath(path, {
+              ...placeholderImages[i],
+              src: blobUrl,
+            });
+          });
+        });
       } catch (err: unknown) {
         const message =
           err instanceof Error ? err.message : "記事の取得に失敗しました";
@@ -96,7 +102,7 @@ export function ArticleEditor() {
     };
 
     load();
-  }, [isEdit, id, loadFromParsed]);
+  }, [isEdit, id, loadFromParsed, updateImageByOriginalPath]);
 
   const handleTitleChange = (value: string) => {
     setTitle(value);
@@ -270,7 +276,7 @@ export function ArticleEditor() {
             <div className="flex gap-3 flex-wrap mt-2 max-md:grid max-md:grid-cols-3 max-md:gap-2">
               {editorImages.map((img, i) => (
                 <button
-                  key={img.src}
+                  key={img.originalPath || img.filename || i}
                   className={`relative bg-transparent rounded-md p-1 cursor-pointer transition-colors border-2 max-md:w-full ${
                     i === thumbnailIndex
                       ? "border-blue-600"

@@ -183,6 +183,25 @@ export function useBlockEditor() {
     setBlocks((prev) => [...prev, createImageBlock(image)]);
   }, []);
 
+  const updateImageByOriginalPath = useCallback(
+    (originalPath: string, resolvedImage: ImageItem) => {
+      setBlocks((prev) =>
+        prev.map((b) => {
+          if (b.type === "image" && b.image.originalPath === originalPath) {
+            return { ...b, image: resolvedImage };
+          }
+          return b;
+        }),
+      );
+      setGithubImages((prev) =>
+        prev.map((img) =>
+          img.originalPath === originalPath ? resolvedImage : img,
+        ),
+      );
+    },
+    [],
+  );
+
   const loadFromParsed = useCallback(
     (parsed: ParsedArticle, resolvedImages: ImageItem[]) => {
       const loaded = deserializeFromParsed(parsed, resolvedImages);
@@ -220,6 +239,7 @@ export function useBlockEditor() {
     updateBlock,
     moveBlock,
     restoreImage,
+    updateImageByOriginalPath,
     loadFromParsed,
     getImages,
     serializeToBody: () => serializeToBody(blocks),

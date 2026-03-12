@@ -1,4 +1,5 @@
 import type { ImageBlock, ImageItem } from "../../lib/types";
+import { ImageSkeleton } from "../ImageSkeleton";
 import { Button } from "../ui/button";
 import { ImagePicker } from "./ImagePicker";
 import { AutoResizeTextarea } from "./TextBlockComponent";
@@ -27,11 +28,15 @@ export function ImageBlockComponent({
         className="w-full p-3 resize-none text-base leading-relaxed outline-none border-b border-slate-200 focus:border-b-blue-500 transition-colors overflow-hidden"
       />
       <div className="p-3">
-        <img
-          src={block.image.src}
-          alt={block.image.filename}
-          className="max-w-[450px] w-full rounded-sm max-md:max-w-full"
-        />
+        {block.image.src ? (
+          <img
+            src={block.image.src}
+            alt={block.image.filename}
+            className="max-w-[450px] w-full rounded-sm max-md:max-w-full"
+          />
+        ) : (
+          <ImageSkeleton size="block" />
+        )}
       </div>
       <div className="px-3 pb-3">
         <ImagePicker

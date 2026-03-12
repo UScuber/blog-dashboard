@@ -1,17 +1,20 @@
-import { Hono } from "hono";
+import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { RequestError } from "@octokit/request-error";
 import { getOctokit, getRepoInfo } from "../lib/github";
 import { generateMarkdown } from "../lib/markdown";
-import { validateTitle } from "../lib/validation";
-import { compressImage } from "../lib/image";
-import { checkDuplicate } from "./articles";
+import { validateArticleInput } from "../lib/validation";
+import {
+  compressImage,
+  getImageSequenceName,
+  determineThumbnail,
+} from "../lib/image";
+import { checkDuplicate } from "../lib/check-duplicate";
+import type { ArticleInput } from "../lib/types";
 import crypto from "crypto";
 
-const create = new Hono();
-
-create.post("/", async (c) => {
-  const body = await c.req.json();
+export default async function createArticle(c: Context) {
+  const body: ArticleInput = await c.req.json();
   const {
     title,
     date,
@@ -22,16 +25,7 @@ create.post("/", async (c) => {
     thumbnailIndex,
   } = body;
 
-  if (!title || !date || articleBody === undefined) {
-    throw new HTTPException(400, {
-      message: "タイトル、日付、本文は必須です",
-    });
-  }
-
-  const titleValidation = validateTitle(title);
-  if (!titleValidation.valid) {
-    throw new HTTPException(400, { message: titleValidation.error });
-  }
+  validateArticleInput(body);
 
   const octokit = getOctokit();
   const { owner, repo } = getRepoInfo();
@@ -76,7 +70,7 @@ create.post("/", async (c) => {
   // 画像のコミット（1枚ずつ）
   for (let i = 0; i < imageArr.length; i++) {
     const img = imageArr[i];
-    const seqName = `image${String(i + 1).padStart(3, "0")}.jpg`;
+    const seqName = getImageSequenceName(i);
     const imgPath = `${imageDir}/${seqName}`;
     imagePaths.push(`/${imgPath}`);
 
@@ -93,16 +87,7 @@ create.post("/", async (c) => {
   }
 
   // サムネイル決定
-  let thumbnailName = "";
-  if (imagePaths.length > 0) {
-    const thumbIdx =
-      typeof thumbnailIndex === "number" &&
-      thumbnailIndex >= 0 &&
-      thumbnailIndex < imagePaths.length
-        ? thumbnailIndex
-        : 0;
-    thumbnailName = `image${String(thumbIdx + 1).padStart(3, "0")}.jpg`;
-  }
+  const thumbnailName = determineThumbnail(imagePaths.length, thumbnailIndex);
 
   // Markdown生成・コミット
   const markdown = generateMarkdown({
@@ -146,6 +131,4 @@ create.post("/", async (c) => {
     },
     201,
   );
-});
-
-export default create;
+}

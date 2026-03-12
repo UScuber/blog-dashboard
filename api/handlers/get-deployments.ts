@@ -1,8 +1,6 @@
-import { Hono } from "hono";
+import type { Context } from "hono";
 
-const deployments = new Hono();
-
-deployments.get("/", async (c) => {
+export default async function getDeployments(c: Context) {
   const vercelToken = process.env.VERCEL_TOKEN;
   const projectId = process.env.VERCEL_BLOG_PROJECT_ID;
 
@@ -61,6 +59,4 @@ deployments.get("/", async (c) => {
   }
 
   return c.json({ success: true, data: branchMap });
-});
-
-export default deployments;
+}

@@ -3,28 +3,26 @@ import { HTTPException } from "hono/http-exception";
 import { RequestError } from "@octokit/request-error";
 import { handle } from "@hono/node-server/vercel";
 import { authMiddleware } from "./middleware/auth";
-import articles from "./routes/articles";
-import create from "./routes/create";
-import publish from "./routes/publish";
-import deployments from "./routes/deployments";
-import proxyImage from "./routes/proxy-image";
+import listArticles from "./handlers/list-articles";
+import getArticle from "./handlers/get-article";
+import updateArticle from "./handlers/update-article";
+import createArticle from "./handlers/create-article";
+import publishArticle from "./handlers/publish-article";
+import getDeployments from "./handlers/get-deployments";
+import proxyImage from "./handlers/proxy-image";
 
 const app = new Hono().basePath("/api");
 
-// 画像プロキシ（認証不要）
-app.route("/proxy-image", proxyImage);
+app.use("/*", authMiddleware);
 
-// 認証ミドルウェア（画像プロキシ以外の各ルートに個別適用）
-app.use("/articles/*", authMiddleware);
-app.use("/create/*", authMiddleware);
-app.use("/publish/*", authMiddleware);
-app.use("/deployments/*", authMiddleware);
-
-// 認証が必要なルート
-app.route("/articles", articles);
-app.route("/create", create);
-app.route("/publish", publish);
-app.route("/deployments", deployments);
+// ルート定義
+app.get("/proxy-image", proxyImage);
+app.get("/articles", listArticles);
+app.get("/articles/:id", getArticle);
+app.put("/articles/:id", updateArticle);
+app.post("/create", createArticle);
+app.post("/publish", publishArticle);
+app.get("/deployments", getDeployments);
 
 // エラーハンドリング
 app.onError((err, c) => {
@@ -32,7 +30,6 @@ app.onError((err, c) => {
     return c.json({ error: err.message }, err.status);
   }
 
-  // Octokit errors
   if (err instanceof RequestError) {
     const status = err.status;
     if (status === 404) {

@@ -1,11 +1,9 @@
-import { Hono } from "hono";
+import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { RequestError } from "@octokit/request-error";
 import { getOctokit, getRepoInfo } from "../lib/github";
 
-const publish = new Hono();
-
-publish.post("/", async (c) => {
+export default async function publishArticle(c: Context) {
   const body = await c.req.json();
   const { pullNumber } = body;
 
@@ -82,6 +80,4 @@ publish.post("/", async (c) => {
       sha: mergeResult.sha,
     },
   });
-});
-
-export default publish;
+}

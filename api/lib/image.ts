@@ -1,5 +1,23 @@
 import sharp from "sharp";
 
+export function getImageSequenceName(index: number): string {
+  return `image${String(index + 1).padStart(3, "0")}.jpg`;
+}
+
+export function determineThumbnail(
+  imageCount: number,
+  thumbnailIndex?: number,
+): string {
+  if (imageCount <= 0) return "";
+  const idx =
+    typeof thumbnailIndex === "number" &&
+    thumbnailIndex >= 0 &&
+    thumbnailIndex < imageCount
+      ? thumbnailIndex
+      : 0;
+  return getImageSequenceName(idx);
+}
+
 export async function compressImage(base64Data: string): Promise<string> {
   const buffer = Buffer.from(base64Data, "base64");
   const metadata = await sharp(buffer).metadata();

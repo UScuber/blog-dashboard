@@ -1,3 +1,6 @@
+import { HTTPException } from "hono/http-exception";
+import type { ArticleInput } from "./types";
+
 // eslint-disable-next-line no-control-regex
 const FORBIDDEN_CHARS = /[/\\:*?"<>|\x00-\x1f]/;
 
@@ -36,4 +39,16 @@ export function validateTitle(title: string): {
   }
 
   return { valid: true };
+}
+
+export function validateArticleInput(input: ArticleInput): void {
+  if (!input.title || !input.date || input.body === undefined) {
+    throw new HTTPException(400, {
+      message: "タイトル、日付、本文は必須です",
+    });
+  }
+  const result = validateTitle(input.title);
+  if (!result.valid) {
+    throw new HTTPException(400, { message: result.error });
+  }
 }

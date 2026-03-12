@@ -1,9 +1,7 @@
-import { Hono } from "hono";
+import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { RequestError } from "@octokit/request-error";
 import { getOctokit, getRepoInfo } from "../lib/github";
-
-const proxyImage = new Hono();
 
 const EXTENSION_MIME: Record<string, string> = {
   jpg: "image/jpeg",
@@ -14,7 +12,7 @@ const EXTENSION_MIME: Record<string, string> = {
   svg: "image/svg+xml",
 };
 
-proxyImage.get("/", async (c) => {
+export default async function proxyImage(c: Context) {
   const path = c.req.query("path");
   const ref = c.req.query("ref") || "main";
 
@@ -71,6 +69,4 @@ proxyImage.get("/", async (c) => {
       Expires: "0",
     },
   });
-});
-
-export default proxyImage;
+}

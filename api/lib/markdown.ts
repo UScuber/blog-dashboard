@@ -1,63 +1,53 @@
-export interface ArticleInput {
+interface MarkdownParams {
   title: string;
   date: string;
   categories: string[];
   outline: string;
-  img: string;       // サムネイル画像ファイル名 (例: image001.jpg)
-  thumb: string;     // サムネイル画像ファイル名 (例: image001.jpg)
+  img: string;
+  thumb: string;
   body: string;
-  images: string[];  // フルパス配列
+  images: string[];
 }
 
-export function toJekyllMarkdown(input: ArticleInput): string {
-  const { title, date, categories, outline, img, thumb, body, images } = input;
+export function generateMarkdown(params: MarkdownParams): string {
+  const { title, date, categories, outline, img, thumb, body, images } = params;
 
-  // Front Matter
-  const lines = [
-    "---",
-    "layout: post",
-    `title: "${title}"`,
-    `date: ${date}`,
-  ];
+  // Build front matter
+  let frontMatter = `---\nlayout: post\ntitle: "${title}"\ndate: ${date}\n`;
 
   if (categories.length > 0) {
-    lines.push("categories:");
+    frontMatter += "categories:\n";
     for (const cat of categories) {
-      lines.push(`- ${cat}`);
+      frontMatter += `- ${cat}\n`;
     }
   }
 
   if (img) {
-    lines.push(`img: ${img}`);
+    frontMatter += `img: ${img}\n`;
   }
   if (thumb) {
-    lines.push(`thumb: ${thumb}`);
+    frontMatter += `thumb: ${thumb}\n`;
   }
   if (outline) {
-    lines.push(`outline: ${outline}`);
+    frontMatter += `outline: ${outline}\n`;
   }
 
-  lines.push("---");
-  const frontMatter = lines.join("\n");
+  frontMatter += "---";
 
-  // 本文変換
-  let content = body;
-
-  // [image:N] プレースホルダーを <img> タグに置換
-  content = content.replace(/\[image:(\d+)\]/g, (_, index) => {
-    const i = parseInt(index, 10);
-    if (i >= 0 && i < images.length) {
-      return `\n<img src="${images[i]}" width="450px">`;
+  // Replace [image:N] placeholders
+  let processedBody = body.replace(/\[image:(\d+)\]/g, (_, idx) => {
+    const index = parseInt(idx, 10);
+    if (index >= 0 && index < images.length) {
+      return `<img src="${images[index]}" width="450px">`;
     }
     return "";
   });
 
-  // 連続する空行を段落区切りとして整形
-  content = content
-    .split("\n\n")
-    .map((paragraph) => paragraph.trim())
-    .filter((paragraph) => paragraph.length > 0)
-    .join("\n\n");
+  // Split by blank lines, remove empty paragraphs, rejoin
+  const paragraphs = processedBody
+    .split(/\n\s*\n/)
+    .filter((p) => p.trim().length > 0);
+  processedBody = paragraphs.join("\n\n");
 
-  return `${frontMatter}\n\n${content}\n`;
+  return `${frontMatter}\n\n${processedBody}\n`;
 }

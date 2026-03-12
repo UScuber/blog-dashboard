@@ -7,22 +7,21 @@ export function getOctokit(): Octokit {
 
   const token = process.env.GITHUB_PAT;
   if (!token) {
-    throw new Error("GITHUB_PAT environment variable is not set");
+    throw new Error("GITHUB_PAT が設定されていません");
   }
 
   octokitInstance = new Octokit({ auth: token });
   return octokitInstance;
 }
 
-export function getRepo(): { owner: string; repo: string } {
+export function getRepoInfo(): { owner: string; repo: string } {
   const owner = process.env.GITHUB_REPO_OWNER;
   const repo = process.env.GITHUB_REPO_NAME;
 
-  if (!owner) {
-    throw new Error("GITHUB_REPO_OWNER environment variable is not set");
-  }
-  if (!repo) {
-    throw new Error("GITHUB_REPO_NAME environment variable is not set");
+  if (!owner || !repo) {
+    throw new Error(
+      "GITHUB_REPO_OWNER または GITHUB_REPO_NAME が設定されていません"
+    );
   }
 
   return { owner, repo };

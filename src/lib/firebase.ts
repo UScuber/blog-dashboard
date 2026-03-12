@@ -1,30 +1,31 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp } from "firebase/app";
 import {
   getAuth,
   signInWithPopup,
   GoogleAuthProvider,
-  signOut as firebaseSignOut,
   onAuthStateChanged as firebaseOnAuthStateChanged,
   type User,
-} from 'firebase/auth';
+} from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const googleProvider = new GoogleAuthProvider();
+const provider = new GoogleAuthProvider();
 
-export async function signInWithGoogle(): Promise<User> {
-  const result = await signInWithPopup(auth, googleProvider);
-  return result.user;
+export async function signInWithGoogle() {
+  return signInWithPopup(auth, provider);
 }
 
-export async function signOut(): Promise<void> {
-  await firebaseSignOut(auth);
+export async function signOut() {
+  return auth.signOut();
 }
 
 export function getCurrentUser(): User | null {
@@ -33,12 +34,12 @@ export function getCurrentUser(): User | null {
 
 export async function getIdToken(): Promise<string> {
   const user = auth.currentUser;
-  if (!user) {
-    throw new Error('Not authenticated');
-  }
+  if (!user) throw new Error("未認証です");
   return user.getIdToken();
 }
 
-export function onAuthStateChanged(callback: (user: User | null) => void): () => void {
+export function onAuthStateChanged(
+  callback: (user: User | null) => void
+): () => void {
   return firebaseOnAuthStateChanged(auth, callback);
 }

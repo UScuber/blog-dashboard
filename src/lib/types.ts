@@ -1,24 +1,40 @@
 export const CATEGORIES = [
-  'ビーバー',
-  'カブ',
-  'ボーイ',
-  'ベンチャー',
-  '団活動',
-  'お知らせ',
+  "ビーバー",
+  "カブ",
+  "ボーイ",
+  "ベンチャー",
+  "団活動",
+  "お知らせ",
 ] as const;
 
-export type Category = typeof CATEGORIES[number];
+export type Category = (typeof CATEGORIES)[number];
 
-export interface Article {
-  id: number;           // PR番号
+export interface ArticleSummary {
+  id: number;
   title: string;
   branch: string;
   status: string;
   createdAt: string;
   updatedAt: string;
-  markdownContent: string;  // Markdown本文
-  previewStatus: string;          // "ready" | "building" | "pending"
+}
+
+export interface Article extends ArticleSummary {
+  markdownContent: string;
+}
+
+export interface DeploymentInfo {
+  previewStatus: string;
   previewUrl: string | null;
+}
+
+export type DeploymentMap = Record<string, DeploymentInfo>;
+
+export interface ImageItem {
+  src: string;
+  data: string;
+  isNew: boolean;
+  originalPath: string;
+  filename: string;
 }
 
 export interface CreateArticleInput {
@@ -26,9 +42,9 @@ export interface CreateArticleInput {
   date: string;
   categories: string[];
   outline: string;
-  thumbnailIndex: number;
   body: string;
   images: { filename: string; data: string }[];
+  thumbnailIndex: number;
 }
 
 export interface UpdateArticleInput {
@@ -36,14 +52,24 @@ export interface UpdateArticleInput {
   date: string;
   categories: string[];
   outline: string;
-  thumbnailIndex: number;
   body: string;
-  images: { filename: string; data: string; isNew: boolean; originalPath?: string }[];
+  images: {
+    filename: string;
+    data: string;
+    isNew: boolean;
+    originalPath: string;
+  }[];
+  thumbnailIndex: number;
 }
 
-export interface UploadImageInput {
-  branch: string;
+export interface ParsedArticle {
+  title: string;
   date: string;
-  filename: string;
-  data: string;
+  categories: string[];
+  outline: string;
+  img: string;
+  thumb: string;
+  body: string;
+  bodyHtml: string;
+  existingImages: string[];
 }

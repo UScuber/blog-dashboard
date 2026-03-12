@@ -1,30 +1,29 @@
-import { useState, useEffect } from 'react';
-import { Routes, Route, Link } from 'react-router-dom';
-import type { User } from 'firebase/auth';
-import { onAuthStateChanged, signOut } from './lib/firebase';
-import ArticleList from './components/ArticleList';
-import ArticleEditor from './components/ArticleEditor';
-import LoginPage from './components/LoginPage';
+import { useState, useEffect } from "react";
+import { Routes, Route, Link, useNavigate } from "react-router-dom";
+import type { User } from "firebase/auth";
+import { onAuthStateChanged, signOut } from "./lib/firebase";
+import { LoginPage } from "./components/LoginPage";
+import { ArticleList } from "./components/ArticleList";
+import { ArticleEditor } from "./components/ArticleEditor";
+import { HamburgerMenu } from "./components/HamburgerMenu";
+import { Button } from "./components/ui/button";
+import { LoadingScreen } from "./components/LoadingScreen";
+import { Toast } from "./components/Toast";
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged((u) => {
       setUser(u);
-      setAuthLoading(false);
+      setAuthChecked(true);
     });
     return unsubscribe;
   }, []);
 
-  if (authLoading) {
-    return (
-      <div className="loading-overlay">
-        <div className="loading-spinner" />
-        <p className="loading-text">読み込み中...</p>
-      </div>
-    );
+  if (!authChecked) {
+    return <LoadingScreen message="読み込み中..." />;
   }
 
   if (!user) {
@@ -32,27 +31,41 @@ export default function App() {
   }
 
   return (
-    <div className="app">
-      <header className="header">
-        <div className="header-inner">
-          <Link to="/" className="header-title">記事管理ダッシュボード</Link>
-          <nav className="header-nav">
-            <Link to="/">記事一覧</Link>
-            <Link to="/new" className="btn btn-primary btn-sm">新規作成</Link>
-            <span className="user-email">{user.email}</span>
-            <button className="btn btn-secondary btn-sm" onClick={() => signOut()}>
-              ログアウト
-            </button>
-          </nav>
-        </div>
-      </header>
-      <main className="main-content">
+    <>
+      <Header email={user.email || ""} />
+      <main className="px-8 py-6 max-w-[1200px] mx-auto max-md:p-4">
         <Routes>
           <Route path="/" element={<ArticleList />} />
           <Route path="/new" element={<ArticleEditor />} />
           <Route path="/edit/:id" element={<ArticleEditor />} />
         </Routes>
       </main>
-    </div>
+      <Toast />
+    </>
+  );
+}
+
+function Header({ email }: { email: string }) {
+  const navigate = useNavigate();
+
+  return (
+    <header className="flex items-center justify-between px-8 h-14 bg-white border-b border-slate-200 sticky top-0 z-100 max-md:h-12 max-md:px-4">
+      <Link to="/" className="text-lg font-bold text-gray-800 no-underline max-md:text-base">
+        記事管理ダッシュボード
+      </Link>
+      <nav className="flex items-center gap-4 max-md:hidden">
+        <Link to="/" className="text-sm text-slate-500 no-underline transition-colors hover:text-blue-600">
+          記事一覧
+        </Link>
+        <Button size="sm" onClick={() => navigate("/new")}>
+          新規作成
+        </Button>
+        <span className="text-[13px] text-slate-500">{email}</span>
+        <Button variant="secondary" size="sm" onClick={() => signOut()}>
+          ログアウト
+        </Button>
+      </nav>
+      <HamburgerMenu email={email} />
+    </header>
   );
 }

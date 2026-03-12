@@ -1,40 +1,51 @@
-/**
- * Canvas API を使った画像圧縮ユーティリティ
- * 横向き: 最大 1200x800px / 縦向き: 最大 800x1200px
- * JPEG quality 0.8、Base64 文字列を返す
- */
-
-const LONG_SIDE = 1200;
-const SHORT_SIDE = 800;
+const MAX_LANDSCAPE_WIDTH = 1200;
+const MAX_LANDSCAPE_HEIGHT = 800;
+const MAX_PORTRAIT_WIDTH = 800;
+const MAX_PORTRAIT_HEIGHT = 1200;
 const JPEG_QUALITY = 0.8;
 
-/**
- * 画像ファイルを圧縮し、Base64 文字列（data:image/jpeg;base64,... 形式）で返す。
- * - 縦横の向きに応じて最大サイズを切り替え
- * - アスペクト比を維持してリサイズ（拡大はしない）
- * - JPEG に変換
- */
-export async function compressImage(file: File): Promise<string> {
-  const bitmap = await createImageBitmap(file);
-  const { width, height } = bitmap;
+export function compressImage(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const { width, height } = img;
+        const isLandscape = width >= height;
 
-  // 縦向き・横向きに応じて上限を切り替え
-  const isPortrait = height > width;
-  const maxW = isPortrait ? SHORT_SIDE : LONG_SIDE;
-  const maxH = isPortrait ? LONG_SIDE : SHORT_SIDE;
+        const maxW = isLandscape ? MAX_LANDSCAPE_WIDTH : MAX_PORTRAIT_WIDTH;
+        const maxH = isLandscape ? MAX_LANDSCAPE_HEIGHT : MAX_PORTRAIT_HEIGHT;
 
-  // 縮小率を計算（拡大はしない）
-  const scale = Math.min(1, maxW / width, maxH / height);
-  const destW = Math.round(width * scale);
-  const destH = Math.round(height * scale);
+        let newW = width;
+        let newH = height;
 
-  const canvas = document.createElement("canvas");
-  canvas.width = destW;
-  canvas.height = destH;
+        if (newW > maxW) {
+          newH = Math.round((newH * maxW) / newW);
+          newW = maxW;
+        }
+        if (newH > maxH) {
+          newW = Math.round((newW * maxH) / newH);
+          newH = maxH;
+        }
 
-  const ctx = canvas.getContext("2d")!;
-  ctx.drawImage(bitmap, 0, 0, destW, destH);
-  bitmap.close();
+        const canvas = document.createElement("canvas");
+        canvas.width = newW;
+        canvas.height = newH;
 
-  return canvas.toDataURL("image/jpeg", JPEG_QUALITY);
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          reject(new Error("Canvas context unavailable"));
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, newW, newH);
+        const dataUrl = canvas.toDataURL("image/jpeg", JPEG_QUALITY);
+        resolve(dataUrl);
+      };
+      img.onerror = () => reject(new Error("画像の読み込みに失敗しました"));
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = () => reject(new Error("ファイルの読み込みに失敗しました"));
+    reader.readAsDataURL(file);
+  });
 }

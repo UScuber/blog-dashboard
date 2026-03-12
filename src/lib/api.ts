@@ -1,69 +1,67 @@
-import type { Article, CreateArticleInput, UpdateArticleInput, UploadImageInput } from './types';
-import { getIdToken } from './firebase';
+import { getIdToken } from "./firebase";
+import type {
+  ArticleSummary,
+  Article,
+  DeploymentMap,
+  CreateArticleInput,
+  UpdateArticleInput,
+} from "./types";
 
-async function authHeaders(): Promise<Record<string, string>> {
+async function request<T>(
+  url: string,
+  options: RequestInit = {}
+): Promise<T> {
   const token = await getIdToken();
-  return {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${token}`,
-  };
-}
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      ...options.headers,
+    },
+  });
 
-async function request<T>(url: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(url, options);
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || `Request failed: ${res.status}`);
+    throw new Error(body.error || `エラーが発生しました (${res.status})`);
   }
-  return res.json();
+
+  const json = await res.json();
+  return json.data as T;
 }
 
-export async function fetchArticles(): Promise<Article[]> {
-  const headers = await authHeaders();
-  const result = await request<{ success: boolean; data: Article[] }>('/api/articles', { headers });
-  return result.data;
+export function fetchArticles(): Promise<ArticleSummary[]> {
+  return request<ArticleSummary[]>("/api/articles");
 }
 
-export async function createArticle(input: CreateArticleInput): Promise<{ pullNumber: number; branch: string; url: string }> {
-  const headers = await authHeaders();
-  const result = await request<{ success: boolean; data: { pullNumber: number; branch: string; filePath: string; url: string } }>('/api/create', {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(input),
-  });
-  return result.data;
+export function fetchDeployments(): Promise<DeploymentMap> {
+  return request<DeploymentMap>("/api/deployments");
 }
 
-export async function updateArticle(id: number, input: UpdateArticleInput): Promise<void> {
-  const headers = await authHeaders();
-  await request(`/api/articles/${id}`, {
-    method: 'PUT',
-    headers,
+export function fetchArticle(id: number): Promise<Article> {
+  return request<Article>(`/api/articles/${id}`);
+}
+
+export function createArticle(input: CreateArticleInput): Promise<{ id: number }> {
+  return request("/api/create", {
+    method: "POST",
     body: JSON.stringify(input),
   });
 }
 
-export async function uploadImage(input: UploadImageInput): Promise<{ path: string }> {
-  const headers = await authHeaders();
-  const result = await request<{ success: boolean; data: { path: string } }>('/api/images', {
-    method: 'POST',
-    headers,
+export function updateArticle(
+  id: number,
+  input: UpdateArticleInput
+): Promise<void> {
+  return request(`/api/articles/${id}`, {
+    method: "PUT",
     body: JSON.stringify(input),
   });
-  return result.data;
 }
 
-export async function publishArticle(pullNumber: number): Promise<void> {
-  const headers = await authHeaders();
-  await request('/api/publish', {
-    method: 'POST',
-    headers,
+export function publishArticle(pullNumber: number): Promise<void> {
+  return request("/api/publish", {
+    method: "POST",
     body: JSON.stringify({ pullNumber }),
   });
-}
-
-export async function fetchArticle(id: number): Promise<Article> {
-  const headers = await authHeaders();
-  const result = await request<{ success: boolean; data: Article }>(`/api/articles/${id}`, { headers });
-  return result.data;
 }

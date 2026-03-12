@@ -1,98 +1,113 @@
-export interface ParsedArticle {
-  title: string;
-  date: string;
-  categories: string[];
-  outline: string;
-  img: string;
-  thumb: string;
-  body: string; // [image:N] プレースホルダー入りのテキスト
-  bodyHtml: string; // WYSIWYG エディタ用 HTML
-  existingImages: string[]; // 既存の画像パス配列
+import type { ParsedArticle } from "./types";
+
+let cacheBuster = Date.now();
+
+export function resetCacheBuster() {
+  cacheBuster = Date.now();
 }
 
-export function parseMarkdown(content: string, branch?: string): ParsedArticle {
-  let title = "";
-  let date = "";
-  let categories: string[] = [];
-  let outline = "";
-  let img = "";
-  let thumb = "";
-  let body = "";
-  const existingImages: string[] = [];
+export function toProxyUrl(assetPath: string, branch?: string): string {
+  const params = new URLSearchParams({ path: assetPath });
+  if (branch) params.set("ref", branch);
+  params.set("t", String(cacheBuster));
+  return `/api/proxy-image?${params.toString()}`;
+}
 
-  // Front Matter を抽出
+export function parseMarkdown(
+  content: string,
+  branch?: string
+): ParsedArticle {
   const fmMatch = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
-  if (fmMatch) {
-    const frontMatter = fmMatch[1];
-    body = fmMatch[2];
-
-    // title を抽出 (引用符あり・なし両対応)
-    const titleMatch = frontMatter.match(/title:\s*"(.+?)"/);
-    if (titleMatch) {
-      title = titleMatch[1];
-    } else {
-      const titleMatchNoQuote = frontMatter.match(/title:\s*(.+)/);
-      if (titleMatchNoQuote) {
-        title = titleMatchNoQuote[1].trim();
-      }
-    }
-
-    // date を抽出
-    const dateMatch = frontMatter.match(/date:\s*(\S+)/);
-    if (dateMatch) {
-      date = dateMatch[1];
-    }
-
-    // categories を抽出 (YAML配列形式)
-    const catMatch = frontMatter.match(/categories:\n((?:- .+\n?)+)/);
-    if (catMatch) {
-      categories = catMatch[1]
-        .split("\n")
-        .map((line) => line.replace(/^- /, "").trim())
-        .filter((c) => c.length > 0);
-    }
-
-    // img を抽出
-    const imgMatch = frontMatter.match(/img:\s*(.+)/);
-    if (imgMatch) {
-      img = imgMatch[1].trim();
-    }
-
-    // thumb を抽出
-    const thumbMatch = frontMatter.match(/thumb:\s*(.+)/);
-    if (thumbMatch) {
-      thumb = thumbMatch[1].trim();
-    }
-
-    // outline を抽出
-    const outlineMatch = frontMatter.match(/outline:\s*(.+)/);
-    if (outlineMatch) {
-      outline = outlineMatch[1].trim();
-    }
-  } else {
-    body = content;
+  if (!fmMatch) {
+    return {
+      title: "",
+      date: "",
+      categories: [],
+      outline: "",
+      img: "",
+      thumb: "",
+      body: "",
+      bodyHtml: "",
+      existingImages: [],
+    };
   }
 
-  // bodyHtml: WYSIWYG エディタ用の HTML を生成
-  // <img> タグはそのまま維持し、テキストを <p> タグで囲む
-  const bodyHtml = bodyToHtml(body, branch);
+  const frontmatter = fmMatch[1];
+  const rawBody = fmMatch[2];
 
-  // body テキスト変換: <img> を [image:N] に置換
-  // 属性付き <img> にも対応 (width, alt 等)
-  body = body.replace(/<img\s+src="([^"]+)"[^>]*>/g, (_, src) => {
-    const index = existingImages.length;
+  const getString = (key: string): string => {
+    const m = frontmatter.match(new RegExp(`^${key}:\\s*["']?(.+?)["']?\\s*$`, "m"));
+    return m ? m[1] : "";
+  };
+
+  const title = getString("title");
+  const date = getString("date");
+  const outline = getString("outline");
+  const img = getString("img");
+  const thumb = getString("thumb");
+
+  const catMatch = frontmatter.match(/categories:\s*\n((?:\s*-\s*.+\n?)*)/);
+  const categories: string[] = [];
+  if (catMatch) {
+    const lines = catMatch[1].split("\n");
+    for (const line of lines) {
+      const m = line.match(/^\s*-\s*(.+)/);
+      if (m) categories.push(m[1].trim());
+    }
+  }
+
+  const existingImages: string[] = [];
+  let imageIndex = 0;
+
+  let bodyForHtml = rawBody.replace(/<br\s*\/?>/g, "");
+
+  bodyForHtml = bodyForHtml.replace(
+    /(<img\s[^>]*src=")([^"]*\/assets\/[^"]*?)("[^>]*>)/g,
+    (_match, prefix, src, suffix) => {
+      const proxyUrl = toProxyUrl(src, branch);
+      return `${prefix}${proxyUrl}${suffix}`;
+    }
+  );
+
+  bodyForHtml = bodyForHtml.replace(
+    /(\/assets\/img\/[^\s"<>)]+)/g,
+    (assetPath) => toProxyUrl(assetPath, branch)
+  );
+
+  const lines = bodyForHtml.split(/\n\n+/);
+  const htmlParts: string[] = [];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    if (/^<img\s/.test(trimmed) && trimmed.match(/<img/g)?.length === 1) {
+      htmlParts.push(trimmed);
+    } else if (trimmed.includes("<img")) {
+      const parts = trimmed.split(/(<img\s[^>]*>)/);
+      for (const part of parts) {
+        const p = part.trim();
+        if (!p) continue;
+        if (p.startsWith("<img")) {
+          htmlParts.push(p);
+        } else {
+          htmlParts.push(`<p>${p}</p>`);
+        }
+      }
+    } else {
+      htmlParts.push(`<p>${trimmed}</p>`);
+    }
+  }
+
+  const bodyHtml = htmlParts.join("");
+
+  let bodyText = rawBody;
+  bodyText = bodyText.replace(/<img\s[^>]*src="([^"]*)"[^>]*>/g, (_match, src) => {
     existingImages.push(src);
-    return `[image:${index}]`;
+    const placeholder = `[image:${imageIndex}]`;
+    imageIndex++;
+    return placeholder;
   });
-
-  // <br> タグを除去
-  body = body.replace(/<br>/g, "");
-
-  // 連続改行を正規化（3つ以上の改行を2つに）
-  body = body.replace(/\n{3,}/g, "\n\n");
-
-  // 先頭・末尾の空白を除去
-  body = body.trim();
 
   return {
     title,
@@ -101,95 +116,25 @@ export function parseMarkdown(content: string, branch?: string): ParsedArticle {
     outline,
     img,
     thumb,
-    body,
+    body: bodyText,
     bodyHtml,
     existingImages,
   };
 }
 
-// セッション単位のキャッシュバスティング用タイムスタンプ
-let sessionTimestamp = Date.now();
-
-/** セッションタイムスタンプをリセット（編集画面オープン時に呼ぶ） */
-export function resetCacheBuster(): void {
-  sessionTimestamp = Date.now();
-}
-
-/** /assets/... パスをプロキシ API 経由の URL に変換（キャッシュバスティング付き） */
-export function toProxyUrl(assetPath: string, branch?: string): string {
-  const cleanPath = assetPath.startsWith("/") ? assetPath.slice(1) : assetPath;
-  let url = `/api/proxy-image?path=${encodeURIComponent(cleanPath)}`;
-  if (branch) {
-    url += `&ref=${encodeURIComponent(branch)}`;
-  }
-  url += `&t=${sessionTimestamp}`;
-  return url;
-}
-
-/** Markdown 本文を WYSIWYG エディタ用の HTML に変換 */
-function bodyToHtml(body: string, branch?: string): string {
-  // <br> タグを除去
-  let html = body.replace(/<br\s*\/?>/g, "");
-
-  // /assets/... パスをプロキシ URL に変換
-  html = html.replace(
-    /<img\s+src="(\/assets\/[^"]+)"([^>]*)>/g,
-    (_, src, rest) => {
-      return `<img src="${toProxyUrl(src, branch)}"${rest}>`;
-    },
-  );
-
-  // 段落に分割（空行区切り）
-  const paragraphs = html
-    .split(/\n\n+/)
-    .map((p) => p.trim())
-    .filter((p) => p.length > 0);
-
-  return paragraphs
-    .map((p) => {
-      // <img> タグのみの段落はそのまま返す
-      if (/^(<img\s[^>]+>)+$/.test(p.trim())) {
-        return p.trim();
-      }
-      // テキスト内に <img> がある場合は分割して処理
-      if (/<img\s/.test(p)) {
-        const parts = p.split(/(<img\s[^>]+>)/);
-        return parts
-          .map((part) => {
-            if (/^<img\s/.test(part)) return part;
-            const text = part.trim();
-            if (!text) return "";
-            return `<p>${text}</p>`;
-          })
-          .filter(Boolean)
-          .join("");
-      }
-      return `<p>${p}</p>`;
-    })
-    .join("");
-}
-
-/** WYSIWYG エディタの HTML を [image:N] プレースホルダー付きテキストに変換 */
-export function htmlToBody(html: string): {
-  body: string;
-  imageSrcs: string[];
-} {
+export function htmlToBody(html: string): { body: string; imageSrcs: string[] } {
   const imageSrcs: string[] = [];
+  let index = 0;
 
-  // img タグを [image:N] に置換
-  let text = html.replace(/<img\s+src="([^"]+)"[^>]*\/?>/g, (_, src) => {
-    const index = imageSrcs.length;
+  let text = html.replace(/<img\s[^>]*src="([^"]*)"[^>]*>/g, (_match, src) => {
     imageSrcs.push(src);
-    return `[image:${index}]`;
+    const placeholder = `[image:${index}]`;
+    index++;
+    return placeholder;
   });
 
-  // HTML タグを処理
-  text = text.replace(/<\/p>\s*<p>/g, "\n\n"); // 段落区切り → 改行
-  text = text.replace(/<p>/g, "");
-  text = text.replace(/<\/p>/g, "");
-  text = text.replace(/<br\s*\/?>/g, "\n\n");
-
-  // 連続改行を正規化
+  text = text.replace(/<\/p>\s*<p>/g, "\n\n");
+  text = text.replace(/<[^>]+>/g, "");
   text = text.replace(/\n{3,}/g, "\n\n");
   text = text.trim();
 

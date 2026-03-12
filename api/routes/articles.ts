@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
+import { RequestError } from "@octokit/request-error";
 import { getOctokit, getRepoInfo } from "../lib/github";
 import { generateMarkdown } from "../lib/markdown";
 import { validateTitle } from "../lib/validation";
@@ -85,8 +86,8 @@ articles.get("/:id", async (c) => {
         markdownContent,
       },
     });
-  } catch (error: any) {
-    if (error.status === 404) {
+  } catch (error) {
+    if (error instanceof RequestError && error.status === 404) {
       throw new HTTPException(404, { message: "記事が見つかりません" });
     }
     throw error;
@@ -135,8 +136,8 @@ articles.put("/:id", async (c) => {
     ]);
     pr = prRes.data;
     prFiles = filesRes.data;
-  } catch (error: any) {
-    if (error.status === 404) {
+  } catch (error) {
+    if (error instanceof RequestError && error.status === 404) {
       throw new HTTPException(404, { message: "PRが見つかりません" });
     }
     throw error;
@@ -295,7 +296,7 @@ articles.put("/:id", async (c) => {
   }
 
   // 画像パス配列の構築
-  const imagePaths = imageArr.map((_: any, i: number) => {
+  const imagePaths = imageArr.map((_: unknown, i: number) => {
     const seqName = `image${String(i + 1).padStart(3, "0")}.jpg`;
     return `/${newImageDir}/${seqName}`;
   });
@@ -354,7 +355,7 @@ articles.put("/:id", async (c) => {
     owner,
     repo,
     base_tree: baseTreeSha,
-    tree: treeEntries as any,
+    tree: treeEntries as TreeEntry[],
   });
 
   // コミット作成
@@ -445,9 +446,9 @@ async function checkDuplicate(
     throw new HTTPException(409, {
       message: "同じ日付・タイトルの記事が既に存在します",
     });
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof HTTPException) throw error;
-    if (error.status !== 404) throw error;
+    if (error instanceof RequestError && error.status !== 404) throw error;
   }
 
   // オープンPRでの確認

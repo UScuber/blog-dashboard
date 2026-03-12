@@ -1,4 +1,5 @@
-const FORBIDDEN_CHARS = /[\/\\:*?"<>|\x00-\x1f]/;
+// eslint-disable-next-line no-control-regex
+const FORBIDDEN_CHARS = /[/\\:*?"<>|\x00-\x1f]/;
 
 const RESERVED_NAMES = /^(CON|PRN|AUX|NUL|COM[0-9]|LPT[0-9])$/i;
 

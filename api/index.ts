@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
+import { RequestError } from "@octokit/request-error";
 import { handle } from "@hono/node-server/vercel";
 import { authMiddleware } from "./middleware/auth";
 import articles from "./routes/articles";
@@ -32,8 +33,8 @@ app.onError((err, c) => {
   }
 
   // Octokit errors
-  if ("status" in err && typeof (err as any).status === "number") {
-    const status = (err as any).status;
+  if (err instanceof RequestError) {
+    const status = err.status;
     if (status === 404) {
       return c.json({ error: "リソースが見つかりません" }, 404);
     }

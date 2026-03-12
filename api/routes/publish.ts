@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
+import { RequestError } from "@octokit/request-error";
 import { getOctokit, getRepoInfo } from "../lib/github";
 
 const publish = new Hono();
@@ -24,8 +25,8 @@ publish.post("/", async (c) => {
       pull_number: pullNumber,
     });
     pr = data;
-  } catch (error: any) {
-    if (error.status === 404) {
+  } catch (error) {
+    if (error instanceof RequestError && error.status === 404) {
       throw new HTTPException(404, { message: "PRが見つかりません" });
     }
     throw error;
@@ -53,8 +54,8 @@ publish.post("/", async (c) => {
       merge_method: "squash",
     });
     mergeResult = data;
-  } catch (error: any) {
-    if (error.status === 405) {
+  } catch (error) {
+    if (error instanceof RequestError && error.status === 405) {
       throw new HTTPException(405, {
         message: "PRをマージできません",
       });

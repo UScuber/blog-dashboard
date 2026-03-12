@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
+import { RequestError } from "@octokit/request-error";
 import { getOctokit, getRepoInfo } from "../lib/github";
 import { generateMarkdown } from "../lib/markdown";
 import { validateTitle } from "../lib/validation";
@@ -59,8 +60,8 @@ create.post("/", async (c) => {
       ref: `refs/heads/${branchName}`,
       sha: mainSha,
     });
-  } catch (error: any) {
-    if (error.status === 422) {
+  } catch (error) {
+    if (error instanceof RequestError && error.status === 422) {
       throw new HTTPException(422, {
         message: "ブランチ名が既に存在します。もう一度お試しください",
       });

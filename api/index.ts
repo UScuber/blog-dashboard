@@ -11,11 +11,14 @@ import publishArticle from "../server/handlers/publish-article";
 import getDeployments from "../server/handlers/get-deployments";
 import proxyImage from "../server/handlers/proxy-image";
 
-const app = new Hono().basePath("/api");
+const app = new Hono<{ Variables: { userEmail: string } }>().basePath("/api");
 
 app.use("/*", authMiddleware);
 
 // ルート定義
+app.get("/auth/check", (c) => {
+  return c.json({ ok: true });
+});
 app.get("/proxy-image", proxyImage);
 app.get("/articles", listArticles);
 app.get("/articles/:id", getArticle);

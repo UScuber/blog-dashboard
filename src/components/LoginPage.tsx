@@ -2,9 +2,13 @@ import { useState } from "react";
 import { signInWithGoogle } from "../lib/firebase";
 import { Button } from "./ui/button";
 
-export function LoginPage() {
+interface LoginPageProps {
+  initialError?: string;
+}
+
+export function LoginPage({ initialError = "" }: LoginPageProps) {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(initialError);
 
   const handleLogin = async () => {
     setLoading(true);

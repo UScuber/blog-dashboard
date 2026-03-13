@@ -27,6 +27,18 @@ async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
   return json.data as T;
 }
 
+// request() は非OKレスポンスを一律エラーにするが、
+// ここでは403を正常な「未許可」として扱うため直接fetchする
+export async function checkAuth(): Promise<{ authorized: boolean }> {
+  const token = await getIdToken();
+  const res = await fetch("/api/auth/check", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (res.ok) return { authorized: true };
+  if (res.status === 403) return { authorized: false };
+  throw new Error(`認証チェックに失敗しました (${res.status})`);
+}
+
 export function fetchArticles(): Promise<ArticleSummary[]> {
   return request<ArticleSummary[]>("/api/articles");
 }

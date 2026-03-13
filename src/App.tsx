@@ -9,6 +9,7 @@ import {
 } from "react-router-dom";
 import type { User } from "firebase/auth";
 import { onAuthStateChanged, signOut } from "./lib/firebase";
+import { checkAuth } from "./lib/api";
 import { LoginPage } from "./components/LoginPage";
 import { ArticleList } from "./components/ArticleList";
 import { ArticleEditor } from "./components/ArticleEditor";
@@ -20,21 +21,57 @@ import { Toaster } from "./components/ui/sonner";
 function AppLayout() {
   const [user, setUser] = useState<User | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
+  const [authorized, setAuthorized] = useState<boolean | null>(null);
+  const [authError, setAuthError] = useState("");
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged((u) => {
       setUser(u);
       setAuthChecked(true);
+      if (u) {
+        setAuthError("");
+      } else {
+        setAuthorized(null);
+      }
     });
     return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    checkAuth()
+      .then(({ authorized }) => {
+        if (cancelled) return;
+        if (authorized) {
+          setAuthorized(true);
+        } else {
+          setAuthError(
+            "このアカウントにはアクセス権限がありません。管理者に連絡してください。",
+          );
+          signOut();
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setAuthError("認証チェックに失敗しました。もう一度お試しください。");
+        signOut();
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   if (!authChecked) {
     return <LoadingScreen message="読み込み中..." />;
   }
 
   if (!user) {
-    return <LoginPage />;
+    return <LoginPage initialError={authError} />;
+  }
+
+  if (authorized === null) {
+    return <LoadingScreen message="権限を確認中..." />;
   }
 
   return (

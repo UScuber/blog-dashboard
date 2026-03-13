@@ -74,7 +74,7 @@ export function ArticleEditor() {
 
   useUnsavedChanges({
     isDirty: formDirty || blockEditorDirty,
-    enabled: !submittedRef.current,
+    shouldBlock: () => (formDirty || blockEditorDirty) && !submittedRef.current,
   });
 
   useEffect(() => {

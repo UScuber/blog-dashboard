@@ -3,15 +3,13 @@ import { useBlocker } from "react-router-dom";
 
 interface UseUnsavedChangesOptions {
   isDirty: boolean;
-  enabled: boolean;
+  shouldBlock: () => boolean;
 }
 
 export function useUnsavedChanges({
   isDirty,
-  enabled,
+  shouldBlock,
 }: UseUnsavedChangesOptions) {
-  const shouldBlock = isDirty && enabled;
-
   const blocker = useBlocker(shouldBlock);
 
   useEffect(() => {
@@ -28,7 +26,7 @@ export function useUnsavedChanges({
   }, [blocker]);
 
   useEffect(() => {
-    if (!shouldBlock) return;
+    if (!isDirty) return;
 
     const handler = (e: BeforeUnloadEvent) => {
       e.preventDefault();
@@ -36,5 +34,5 @@ export function useUnsavedChanges({
 
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
-  }, [shouldBlock]);
+  }, [isDirty]);
 }

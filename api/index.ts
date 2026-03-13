@@ -2,14 +2,14 @@ import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { RequestError } from "@octokit/request-error";
 import { handle } from "@hono/node-server/vercel";
-import { authMiddleware } from "./middleware/auth";
-import listArticles from "./handlers/list-articles";
-import getArticle from "./handlers/get-article";
-import updateArticle from "./handlers/update-article";
-import createArticle from "./handlers/create-article";
-import publishArticle from "./handlers/publish-article";
-import getDeployments from "./handlers/get-deployments";
-import proxyImage from "./handlers/proxy-image";
+import { authMiddleware } from "../server/middleware/auth";
+import listArticles from "../server/handlers/list-articles";
+import getArticle from "../server/handlers/get-article";
+import updateArticle from "../server/handlers/update-article";
+import createArticle from "../server/handlers/create-article";
+import publishArticle from "../server/handlers/publish-article";
+import getDeployments from "../server/handlers/get-deployments";
+import proxyImage from "../server/handlers/proxy-image";
 
 const app = new Hono().basePath("/api");
 

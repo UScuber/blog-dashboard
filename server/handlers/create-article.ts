@@ -10,6 +10,7 @@ import {
   determineThumbnail,
 } from "../lib/image";
 import { checkDuplicate } from "../lib/check-duplicate";
+import type { TreeEntry } from "../lib/git-tree";
 import type { ArticleInput } from "../lib/types";
 import crypto from "crypto";
 
@@ -73,8 +74,9 @@ export default async function createArticle(c: Context) {
   const imageDir = `assets/img/blog/${date}-${title}`;
   const imageArr = images ?? [];
   const imagePaths: string[] = [];
+  const treeEntries: TreeEntry[] = [];
 
-  // 画像のコミット（1枚ずつ）
+  // 画像のBlob作成
   for (let i = 0; i < imageArr.length; i++) {
     const img = imageArr[i];
     const seqName = getImageSequenceName(i);
@@ -82,21 +84,24 @@ export default async function createArticle(c: Context) {
     imagePaths.push(`/${imgPath}`);
 
     const compressed = await compressImage(img.data);
-
-    await octokit.repos.createOrUpdateFileContents({
+    const { data: blob } = await octokit.git.createBlob({
       owner,
       repo,
-      path: imgPath,
-      message: `add image: ${seqName}`,
       content: compressed,
-      branch: branchName,
+      encoding: "base64",
+    });
+    treeEntries.push({
+      path: imgPath,
+      mode: "100644",
+      type: "blob",
+      sha: blob.sha,
     });
   }
 
   // サムネイル決定
   const thumbnailName = determineThumbnail(imagePaths.length, thumbnailIndex);
 
-  // Markdown生成・コミット
+  // Markdown生成・Blob作成
   const markdown = generateMarkdown({
     title,
     date,
@@ -108,13 +113,49 @@ export default async function createArticle(c: Context) {
     images: imagePaths,
   });
 
-  await octokit.repos.createOrUpdateFileContents({
+  const { data: mdBlob } = await octokit.git.createBlob({
     owner,
     repo,
-    path: filePath,
-    message: `post: ${title}`,
     content: Buffer.from(markdown).toString("base64"),
-    branch: branchName,
+    encoding: "base64",
+  });
+  treeEntries.push({
+    path: filePath,
+    mode: "100644",
+    type: "blob",
+    sha: mdBlob.sha,
+  });
+
+  // ベースツリーSHAを取得
+  const { data: commitData } = await octokit.git.getCommit({
+    owner,
+    repo,
+    commit_sha: mainSha,
+  });
+
+  // Git Tree作成
+  const { data: newTree } = await octokit.git.createTree({
+    owner,
+    repo,
+    base_tree: commitData.tree.sha,
+    tree: treeEntries,
+  });
+
+  // コミット作成
+  const { data: newCommit } = await octokit.git.createCommit({
+    owner,
+    repo,
+    message: `post: ${title}`,
+    tree: newTree.sha,
+    parents: [mainSha],
+  });
+
+  // ブランチref更新
+  await octokit.git.updateRef({
+    owner,
+    repo,
+    ref: `heads/${branchName}`,
+    sha: newCommit.sha,
   });
 
   // PR作成

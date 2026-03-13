@@ -50,6 +50,21 @@ export function ArticleList() {
     loadData();
   }, []);
 
+  useEffect(() => {
+    if (loading || error) return;
+
+    const id = setInterval(async () => {
+      try {
+        const deps = await fetchDeployments();
+        setDeployments(deps);
+      } catch {
+        // ポーリング失敗時は既存データを維持
+      }
+    }, 10 * 1000);
+
+    return () => clearInterval(id);
+  }, [loading, error]);
+
   const handlePublish = async (article: ArticleSummary) => {
     if (
       !window.confirm(

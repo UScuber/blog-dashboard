@@ -15,7 +15,7 @@ import { ArticleEditor } from "./components/ArticleEditor";
 import { HamburgerMenu } from "./components/HamburgerMenu";
 import { Button } from "./components/ui/button";
 import { LoadingScreen } from "./components/LoadingScreen";
-import { Toast } from "./components/Toast";
+import { Toaster } from "./components/ui/sonner";
 
 function AppLayout() {
   const [user, setUser] = useState<User | null>(null);
@@ -43,7 +43,7 @@ function AppLayout() {
       <main className="px-8 py-6 max-w-[1200px] mx-auto max-md:p-4">
         <Outlet />
       </main>
-      <Toast />
+      <Toaster />
     </>
   );
 }

@@ -1,6 +1,6 @@
 import type { Block, ImageBlock, ImageItem } from "../../lib/types";
 import { compressImage } from "../../lib/imageCompressor";
-import { showToast } from "../../lib/toast";
+import { toast } from "sonner";
 import { TextBlockComponent } from "./TextBlockComponent";
 import { ImageBlockComponent } from "./ImageBlockComponent";
 import { BlockToolbar } from "./BlockToolbar";
@@ -86,7 +86,7 @@ export function BlockEditor({
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "画像の処理に失敗しました";
-      showToast(message, "error");
+      toast.error(message);
     }
   };
 
@@ -97,7 +97,7 @@ export function BlockEditor({
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "画像の処理に失敗しました";
-      showToast(message, "error");
+      toast.error(message);
     }
   };
 

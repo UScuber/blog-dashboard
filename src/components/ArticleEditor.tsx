@@ -6,7 +6,7 @@ import {
   updateArticle,
   fetchImageUrl,
 } from "../lib/api";
-import { showToast } from "../lib/toast";
+import { toast } from "sonner";
 import { validateTitle } from "../lib/validation";
 import { parseMarkdown, toProxyUrl, resetCacheBuster } from "../lib/parser";
 import type { ImageItem } from "../lib/types";
@@ -124,7 +124,7 @@ export function ArticleEditor() {
       } catch (err: unknown) {
         const message =
           err instanceof Error ? err.message : "記事の取得に失敗しました";
-        showToast(message, "error");
+        toast.error(message);
         setLoadingContent(false);
         setPageLoading(false);
       }
@@ -152,14 +152,14 @@ export function ArticleEditor() {
   const handleSubmit = async () => {
     const titleValidation = validateTitle(title);
     if (!titleValidation.valid) {
-      showToast(titleValidation.error || "タイトルエラー", "error");
+      toast.error(titleValidation.error || "タイトルエラー");
       return;
     }
 
     const { body, images } = serializeToBody();
 
     if (!body.trim() && images.length === 0) {
-      showToast("本文を入力してください", "error");
+      toast.error("本文を入力してください");
       return;
     }
 
@@ -182,7 +182,7 @@ export function ArticleEditor() {
           thumbnailIndex,
         };
         await updateArticle(Number(id), input);
-        showToast("記事を更新しました", "success");
+        toast.success("記事を更新しました");
       } else {
         const input: CreateArticleInput = {
           title,
@@ -199,13 +199,13 @@ export function ArticleEditor() {
           thumbnailIndex,
         };
         await createArticle(input);
-        showToast("記事を作成しました", "success");
+        toast.success("記事を作成しました");
       }
       submittedRef.current = true;
       navigate("/");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "送信に失敗しました";
-      showToast(message, "error");
+      toast.error(message);
     } finally {
       setSubmitting(false);
     }

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchArticles, fetchDeployments, publishArticle } from "../lib/api";
-import { showToast } from "../lib/toast";
+import { toast } from "sonner";
 import type { ArticleSummary, DeploymentMap } from "../lib/types";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
@@ -76,11 +76,11 @@ export function ArticleList() {
     setPublishingId(article.id);
     try {
       await publishArticle(article.id);
-      showToast("記事を公開しました", "success");
+      toast.success("記事を公開しました");
       await loadData();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "公開に失敗しました";
-      showToast(message, "error");
+      toast.error(message);
     } finally {
       setPublishingId(null);
     }

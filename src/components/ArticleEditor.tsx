@@ -7,7 +7,13 @@ import {
   fetchImageUrl,
 } from "../lib/api";
 import { toast } from "sonner";
-import { validateTitle } from "../lib/validation";
+import {
+  validateTitle,
+  validateDate,
+  validateOutline,
+} from "../lib/validation";
+import { format, startOfToday } from "date-fns";
+import { ja } from "date-fns/locale";
 import { parseMarkdown, toProxyUrl, resetCacheBuster } from "../lib/parser";
 import type { ImageItem } from "../lib/types";
 import { CATEGORIES } from "../lib/types";
@@ -34,6 +40,9 @@ export function ArticleEditor() {
   const [categories, setCategories] = useState<string[]>([]);
   const [outline, setOutline] = useState("");
   const [titleError, setTitleError] = useState("");
+  const [dateError, setDateError] = useState("");
+  const [outlineError, setOutlineError] = useState("");
+  const [categoriesError, setCategoriesError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [loadingContent, setLoadingContent] = useState(isEdit);
   const [pageLoading, setPageLoading] = useState(isEdit);
@@ -143,6 +152,26 @@ export function ArticleEditor() {
     }
   };
 
+  const handleDateChange = (value: string) => {
+    setDate(value);
+    if (value) {
+      const result = validateDate(value);
+      setDateError(result.valid ? "" : result.error || "");
+    } else {
+      setDateError("");
+    }
+  };
+
+  const handleOutlineChange = (value: string) => {
+    setOutline(value);
+    if (value.length > 0) {
+      const result = validateOutline(value);
+      setOutlineError(result.valid ? "" : result.error || "");
+    } else {
+      setOutlineError("");
+    }
+  };
+
   const toggleCategory = (cat: string) => {
     setCategories((prev) =>
       prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat],
@@ -151,15 +180,37 @@ export function ArticleEditor() {
 
   const handleSubmit = async () => {
     const titleValidation = validateTitle(title);
-    if (!titleValidation.valid) {
-      toast.error(titleValidation.error || "タイトルエラー");
-      return;
-    }
+    const dateValidation = validateDate(date);
+    const outlineValidation = validateOutline(outline);
+
+    const categoriesValid = categories.length > 0;
+
+    setTitleError(titleValidation.valid ? "" : titleValidation.error || "");
+    setDateError(dateValidation.valid ? "" : dateValidation.error || "");
+    setOutlineError(
+      outlineValidation.valid ? "" : outlineValidation.error || "",
+    );
+    setCategoriesError(
+      categoriesValid ? "" : "カテゴリを1つ以上選択してください",
+    );
 
     const { body, images } = serializeToBody();
 
-    if (!body.trim() && images.length === 0) {
-      toast.error("本文を入力してください");
+    const hasContent = blocks.some(
+      (b) =>
+        (b.type === "text" && b.content.trim().length > 0) ||
+        b.type === "image",
+    );
+
+    const hasErrors =
+      !titleValidation.valid ||
+      !dateValidation.valid ||
+      !outlineValidation.valid ||
+      !categoriesValid ||
+      !hasContent;
+
+    if (hasErrors) {
+      toast.error("入力内容に不備があります");
       return;
     }
 
@@ -243,8 +294,10 @@ export function ArticleEditor() {
               id="date"
               type="date"
               value={date}
-              onChange={(e) => setDate(e.target.value)}
+              max={format(startOfToday(), "yyyy-MM-dd", { locale: ja })}
+              onChange={(e) => handleDateChange(e.target.value)}
             />
+            {dateError && <p className="text-red-600 text-xs">{dateError}</p>}
           </div>
         </div>
 
@@ -270,6 +323,9 @@ export function ArticleEditor() {
               </label>
             ))}
           </div>
+          {categoriesError && (
+            <p className="text-red-600 text-xs">{categoriesError}</p>
+          )}
         </div>
 
         <div className="flex flex-col gap-1.5 flex-1 mt-4">
@@ -278,9 +334,15 @@ export function ArticleEditor() {
             id="outline"
             type="text"
             value={outline}
-            onChange={(e) => setOutline(e.target.value)}
+            onChange={(e) => handleOutlineChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") e.preventDefault();
+            }}
             placeholder="記事の概要"
           />
+          {outlineError && (
+            <p className="text-red-600 text-xs">{outlineError}</p>
+          )}
         </div>
 
         <div className="mt-4 mb-4">

@@ -1,4 +1,6 @@
 import { HTTPException } from "hono/http-exception";
+import { parse, isAfter, startOfToday } from "date-fns";
+import { ja } from "date-fns/locale";
 import type { ArticleInput } from "./types";
 
 // eslint-disable-next-line no-control-regex
@@ -47,8 +49,36 @@ export function validateArticleInput(input: ArticleInput): void {
       message: "タイトル、日付、本文は必須です",
     });
   }
-  const result = validateTitle(input.title);
-  if (!result.valid) {
-    throw new HTTPException(400, { message: result.error });
+
+  const titleResult = validateTitle(input.title);
+  if (!titleResult.valid) {
+    throw new HTTPException(400, { message: titleResult.error });
+  }
+
+  const parsedDate = parse(input.date, "yyyy-MM-dd", new Date(), {
+    locale: ja,
+  });
+  if (isAfter(parsedDate, startOfToday())) {
+    throw new HTTPException(400, { message: "未来の日付は選択できません" });
+  }
+
+  if (!input.categories || input.categories.length === 0) {
+    throw new HTTPException(400, {
+      message: "カテゴリを1つ以上選択してください",
+    });
+  }
+
+  if (
+    !input.outline ||
+    input.outline.trim().length === 0 ||
+    input.outline.includes("\n")
+  ) {
+    throw new HTTPException(400, {
+      message: "概要は1文字以上、改行なしで入力してください",
+    });
+  }
+
+  if (!input.body || !input.body.trim()) {
+    throw new HTTPException(400, { message: "本文を入力してください" });
   }
 }

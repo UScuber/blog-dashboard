@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   fetchArticle,
@@ -20,6 +20,7 @@ import { LoadingOverlay } from "./LoadingOverlay";
 import { LoadingScreen } from "./LoadingScreen";
 import { ImageWithLoader } from "./ImageWithLoader";
 import { BlockEditor, useBlockEditor } from "./block-editor";
+import { useUnsavedChanges } from "../hooks/useUnsavedChanges";
 
 export function ArticleEditor() {
   const { id } = useParams<{ id: string }>();
@@ -37,6 +38,15 @@ export function ArticleEditor() {
   const [loadingContent, setLoadingContent] = useState(isEdit);
   const [pageLoading, setPageLoading] = useState(isEdit);
 
+  const initialFormValues = useRef({
+    title: "",
+    date: new Date().toISOString().split("T")[0],
+    categories: [] as string[],
+    outline: "",
+  });
+  // 送信成功後〜ナビゲーション完了までの間、未保存警告を抑制する
+  const submittedRef = useRef(false);
+
   const {
     blocks,
     deletedImages,
@@ -52,7 +62,20 @@ export function ArticleEditor() {
     loadFromParsed,
     getImages,
     serializeToBody,
+    isDirty: blockEditorDirty,
   } = useBlockEditor();
+
+  const formDirty =
+    title !== initialFormValues.current.title ||
+    date !== initialFormValues.current.date ||
+    outline !== initialFormValues.current.outline ||
+    categories.length !== initialFormValues.current.categories.length ||
+    categories.some((c) => !initialFormValues.current.categories.includes(c));
+
+  useUnsavedChanges({
+    isDirty: formDirty || blockEditorDirty,
+    enabled: !submittedRef.current,
+  });
 
   useEffect(() => {
     if (!isEdit || !id) return;
@@ -82,6 +105,12 @@ export function ArticleEditor() {
         loadFromParsed(parsed, placeholderImages);
         setLoadingContent(false);
         setPageLoading(false);
+        initialFormValues.current = {
+          title: parsed.title,
+          date: parsed.date,
+          categories: parsed.categories,
+          outline: parsed.outline,
+        };
 
         parsed.existingImages.forEach((path, i) => {
           const proxyUrl = toProxyUrl(path, article.branch);
@@ -172,6 +201,7 @@ export function ArticleEditor() {
         await createArticle(input);
         showToast("記事を作成しました", "success");
       }
+      submittedRef.current = true;
       navigate("/");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "送信に失敗しました";
@@ -282,7 +312,10 @@ export function ArticleEditor() {
                       ? "border-blue-600"
                       : "border-transparent"
                   }`}
-                  onClick={() => setThumbnailIndex(i)}
+                  onClick={() => {
+                    if (i === thumbnailIndex) return;
+                    setThumbnailIndex(i);
+                  }}
                 >
                   <ImageWithLoader src={img.src} alt={img.filename} size="md" />
                   {i === thumbnailIndex && (

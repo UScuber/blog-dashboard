@@ -1,4 +1,4 @@
-import type { Block, ImageItem } from "../../lib/types";
+import type { Block, ImageBlock, ImageItem } from "../../lib/types";
 import { compressImage } from "../../lib/imageCompressor";
 import { showToast } from "../../lib/toast";
 import { TextBlockComponent } from "./TextBlockComponent";
@@ -68,7 +68,7 @@ export function BlockEditor({
   const availableGithubImages = useMemo(() => {
     const usedPaths = new Set(
       blocks
-        .filter((b): b is import("../../lib/types").ImageBlock => b.type === "image")
+        .filter((b): b is ImageBlock => b.type === "image")
         .map((b) => b.image.originalPath)
         .filter(Boolean),
     );

@@ -111,9 +111,7 @@ export function deserializeFromParsed(
     }
 
     if (pendingText.trim()) {
-      blocks.push(
-        createTextBlock(pendingText.trim().replace(/\n\n/g, "\n")),
-      );
+      blocks.push(createTextBlock(pendingText.trim().replace(/\n\n/g, "\n")));
     }
   }
 
@@ -125,27 +123,38 @@ export function useBlockEditor() {
   const [deletedImages, setDeletedImages] = useState<ImageItem[]>([]);
   const [githubImages, setGithubImages] = useState<ImageItem[]>([]);
   const [thumbnailIndex, setThumbnailIndex] = useState(0);
+  const [isDirty, setIsDirty] = useState(false);
 
-  const addBlock = useCallback((block: Block, afterIndex?: number) => {
-    setBlocks((prev) => {
-      if (afterIndex !== undefined && afterIndex >= 0) {
-        const next = [...prev];
-        next.splice(afterIndex + 1, 0, block);
-        return next;
-      }
-      return [...prev, block];
-    });
-  }, []);
+  const markDirty = useCallback(() => setIsDirty(true), []);
 
-  const removeBlock = useCallback((id: string) => {
-    setBlocks((prev) => {
-      const block = prev.find((b) => b.id === id);
-      if (block?.type === "image") {
-        setDeletedImages((del) => [...del, block.image]);
-      }
-      return prev.filter((b) => b.id !== id);
-    });
-  }, []);
+  const addBlock = useCallback(
+    (block: Block, afterIndex?: number) => {
+      markDirty();
+      setBlocks((prev) => {
+        if (afterIndex !== undefined && afterIndex >= 0) {
+          const next = [...prev];
+          next.splice(afterIndex + 1, 0, block);
+          return next;
+        }
+        return [...prev, block];
+      });
+    },
+    [markDirty],
+  );
+
+  const removeBlock = useCallback(
+    (id: string) => {
+      markDirty();
+      setBlocks((prev) => {
+        const block = prev.find((b) => b.id === id);
+        if (block?.type === "image") {
+          setDeletedImages((del) => [...del, block.image]);
+        }
+        return prev.filter((b) => b.id !== id);
+      });
+    },
+    [markDirty],
+  );
 
   const updateBlock = useCallback(
     (
@@ -153,6 +162,7 @@ export function useBlockEditor() {
       updates: Partial<Pick<TextBlock, "content">> &
         Partial<Pick<ImageBlock, "image">>,
     ) => {
+      markDirty();
       setBlocks((prev) =>
         prev.map((b) => {
           if (b.id !== id) return b;
@@ -163,25 +173,33 @@ export function useBlockEditor() {
         }),
       );
     },
-    [],
+    [markDirty],
   );
 
-  const moveBlock = useCallback((id: string, direction: "up" | "down") => {
-    setBlocks((prev) => {
-      const index = prev.findIndex((b) => b.id === id);
-      if (index < 0) return prev;
-      const target = direction === "up" ? index - 1 : index + 1;
-      if (target < 0 || target >= prev.length) return prev;
-      const next = [...prev];
-      [next[index], next[target]] = [next[target], next[index]];
-      return next;
-    });
-  }, []);
+  const moveBlock = useCallback(
+    (id: string, direction: "up" | "down") => {
+      markDirty();
+      setBlocks((prev) => {
+        const index = prev.findIndex((b) => b.id === id);
+        if (index < 0) return prev;
+        const target = direction === "up" ? index - 1 : index + 1;
+        if (target < 0 || target >= prev.length) return prev;
+        const next = [...prev];
+        [next[index], next[target]] = [next[target], next[index]];
+        return next;
+      });
+    },
+    [markDirty],
+  );
 
-  const restoreImage = useCallback((image: ImageItem) => {
-    setDeletedImages((prev) => prev.filter((img) => img.src !== image.src));
-    setBlocks((prev) => [...prev, createImageBlock(image)]);
-  }, []);
+  const restoreImage = useCallback(
+    (image: ImageItem) => {
+      markDirty();
+      setDeletedImages((prev) => prev.filter((img) => img.src !== image.src));
+      setBlocks((prev) => [...prev, createImageBlock(image)]);
+    },
+    [markDirty],
+  );
 
   const updateImageByOriginalPath = useCallback(
     (originalPath: string, resolvedImage: ImageItem) => {
@@ -242,6 +260,7 @@ export function useBlockEditor() {
     updateImageByOriginalPath,
     loadFromParsed,
     getImages,
+    isDirty,
     serializeToBody: () => serializeToBody(blocks),
   };
 }

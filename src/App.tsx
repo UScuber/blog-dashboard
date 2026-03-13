@@ -1,5 +1,12 @@
 import { useState, useEffect } from "react";
-import { Routes, Route, Link, useNavigate } from "react-router-dom";
+import {
+  createBrowserRouter,
+  RouterProvider,
+  Outlet,
+  Link,
+  useNavigate,
+  useParams,
+} from "react-router-dom";
 import type { User } from "firebase/auth";
 import { onAuthStateChanged, signOut } from "./lib/firebase";
 import { LoginPage } from "./components/LoginPage";
@@ -10,7 +17,7 @@ import { Button } from "./components/ui/button";
 import { LoadingScreen } from "./components/LoadingScreen";
 import { Toast } from "./components/Toast";
 
-export default function App() {
+function AppLayout() {
   const [user, setUser] = useState<User | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
 
@@ -34,11 +41,7 @@ export default function App() {
     <>
       <Header email={user.email || ""} />
       <main className="px-8 py-6 max-w-[1200px] mx-auto max-md:p-4">
-        <Routes>
-          <Route path="/" element={<ArticleList />} />
-          <Route path="/new" element={<ArticleEditor />} />
-          <Route path="/edit/:id" element={<ArticleEditor />} />
-        </Routes>
+        <Outlet />
       </main>
       <Toast />
     </>
@@ -74,4 +77,25 @@ function Header({ email }: { email: string }) {
       <HamburgerMenu email={email} />
     </header>
   );
+}
+
+function ArticleEditorWrapper() {
+  const { id } = useParams<{ id: string }>();
+  return <ArticleEditor key={id} />;
+}
+
+const router = createBrowserRouter([
+  {
+    path: "/",
+    element: <AppLayout />,
+    children: [
+      { index: true, element: <ArticleList /> },
+      { path: "new", element: <ArticleEditor key="new" /> },
+      { path: "edit/:id", element: <ArticleEditorWrapper /> },
+    ],
+  },
+]);
+
+export default function App() {
+  return <RouterProvider router={router} />;
 }

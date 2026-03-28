@@ -10,8 +10,16 @@ import createArticle from "../server/handlers/create-article";
 import publishArticle from "../server/handlers/publish-article";
 import getDeployments from "../server/handlers/get-deployments";
 import proxyImage from "../server/handlers/proxy-image";
+import {
+  proxyFirebaseAuthHelper,
+  proxyFirebaseInit,
+} from "../server/handlers/proxy-firebase-auth-helper";
 
 const app = new Hono<{ Variables: { userEmail: string } }>().basePath("/api");
+
+// Firebase Auth helper は未認証状態でアクセスされるため公開する
+app.all("/firebase-auth/*", proxyFirebaseAuthHelper);
+app.get("/firebase-init", proxyFirebaseInit);
 
 app.use("/*", authMiddleware);
 
